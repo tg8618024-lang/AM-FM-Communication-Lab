@@ -60,33 +60,41 @@ const DSP = (() => {
 
   // ==================== AM MODULATION ====================
 
-  function amModulate(msg, fc, ac, m, sr) {
-    // s_AM(t) = Ac * [1 + m*x(t)] * cos(2*pi*fc*t)
+  function amModulate(msg, fc, ac, m, sr, mode = 'DSB-FC') {
     const n = msg.length;
     const signal = new Float32Array(n);
     const carrier = new Float32Array(n);
     const envelope = new Float32Array(n);
+    const isDSBSC = (mode === 'DSB-SC');
 
     for (let i = 0; i < n; i++) {
       const t = i / sr;
       const car = Math.cos(TWO_PI * fc * t);
       carrier[i] = ac * car;
-      const envRaw = ac * (1 + m * msg[i]);
-      envelope[i] = Math.abs(envRaw);  // True envelope magnitude
-      signal[i] = envRaw * car;
+
+      if (isDSBSC) {
+        // DSB-SC: s(t) = Ac * m * x(t) * cos(2*pi*fc*t)
+        const s = ac * m * msg[i] * car;
+        signal[i] = s;
+        envelope[i] = Math.abs(ac * m * msg[i]);
+      } else {
+        // DSB-FC: s(t) = Ac * [1 + m*x(t)] * cos(2*pi*fc*t)
+        const envRaw = ac * (1 + m * msg[i]);
+        envelope[i] = Math.abs(envRaw);
+        signal[i] = envRaw * car;
+      }
     }
 
     // Theoretical power calculations
-    const pc = ac * ac / 2;              // Carrier power
-    const psb = pc * m * m / 2;          // Sideband power (for sinusoidal message)
-    const pt = pc * (1 + m * m / 2);     // Total AM power
-    const efficiency = (m * m / (2 + m * m)) * 100;  // Power efficiency %
-    const isOvermod = m > 1.0;
-    const bw = 2 * sr;  // Placeholder; actual BW = 2*fm
+    const pc = isDSBSC ? 0 : (ac * ac / 2);
+    const psb = (ac * ac / 2) * m * m / 2;
+    const pt = isDSBSC ? psb : (pc * (1 + m * m / 2));
+    const efficiency = isDSBSC ? 100.0 : ((m * m / (2 + m * m)) * 100);
+    const isOvermod = isDSBSC ? false : (m > 1.0);
 
     return {
       signal, carrier, envelope,
-      meta: { fc, m, pc, psb, pt, efficiency, isOvermod }
+      meta: { fc, m, pc, psb, pt, efficiency, isOvermod, mode }
     };
   }
 
@@ -284,9 +292,47 @@ const DSP = (() => {
 
   // ==================== DEMODULATION ====================
 
-  function amDemodulate(amSignal, sr, fmMax) {
-    // Envelope detector via Hilbert transform
+  function amDemodulate(amSignal, sr, fmMax, carrierRef = null, mode = 'DSB-FC') {
     const n = amSignal.length;
+
+    if (mode === 'DSB-SC' && carrierRef) {
+      // Coherent product detector: multiply by carrier reference
+      const mixed = new Float32Array(n);
+      for (let i = 0; i < n; i++) {
+        mixed[i] = amSignal[i] * carrierRef[i];
+      }
+
+      // IIR low-pass filter (cutoff around fmMax)
+      const fc = Math.min(fmMax || 3000, sr * 0.45);
+      const rc = 1.0 / (2 * Math.PI * fc);
+      const dt = 1.0 / sr;
+      const alpha = dt / (rc + dt);
+
+      const filtered = new Float32Array(n);
+      filtered[0] = mixed[0];
+      for (let i = 1; i < n; i++) {
+        filtered[i] = filtered[i - 1] + alpha * (mixed[i] - filtered[i - 1]);
+      }
+
+      // Remove DC
+      let mean = 0;
+      for (let i = 0; i < n; i++) mean += filtered[i];
+      mean /= n;
+
+      const recovered = new Float32Array(n);
+      for (let i = 0; i < n; i++) recovered[i] = filtered[i] - mean;
+
+      // Normalize to unit RMS
+      let rms = 0;
+      for (let i = 0; i < n; i++) rms += recovered[i] * recovered[i];
+      rms = Math.sqrt(rms / n);
+      if (rms > 1e-10) {
+        for (let i = 0; i < n; i++) recovered[i] /= (rms * Math.sqrt(2));
+      }
+      return recovered;
+    }
+
+    // Default: Envelope detector via Hilbert transform for DSB-FC
     const analytic = hilbertTransform(amSignal);
     const envelope = new Float32Array(n);
 
