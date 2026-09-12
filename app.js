@@ -1,6 +1,11 @@
-// AM FM PRO - Simulator Application v2.0
+// AM FM PRO - Simulator Application v3.0
 // Controller: connects UI controls to DSP engine and Canvas renderer.
-// Includes hardware SNR link budget, FM improvement factor, noise floor.
+// Includes:
+// - Hardware SNR link budget, FM improvement factor, visual noise floor
+// - Audio File Input (WAV/MP3 upload & decode)
+// - Live Microphone Input (getUserMedia stream)
+// - Audio Monitor Speaker (Listen to Message, AM Demod, FM Demod)
+// - AM Modulation Modes (DSB-FC Standard vs DSB-SC Suppressed Carrier)
 
 document.addEventListener('DOMContentLoaded', () => {
   // ==================== CONSTANTS ====================
@@ -15,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
     fm: 1000, am: 1.0,
     fc: 10000, ac: 1.0,
     m: 0.80, deltaF: 4000,
+    amMode: 'DSB-FC',
     snr: 25,
     amEnabled: true, fmEnabled: true,
     noiseEnabled: false,
@@ -25,6 +31,33 @@ document.addEventListener('DOMContentLoaded', () => {
     rxBandwidth: 10,  // kHz
     running: true
   };
+
+  // Audio buffers & streaming state
+  let audioFileBuffer = null;      // Float32Array from uploaded file
+  let audioFileOffset = 0;
+  let micActive = false;
+  let micStream = null;
+  let micBuffer = new Float32Array(N_SAMPLES);
+  let micProcessorNode = null;
+
+  // Cached signals for audio speaker playback
+  let lastMsg = new Float32Array(N_SAMPLES);
+  let lastAmRec = new Float32Array(N_SAMPLES);
+  let lastFmRec = new Float32Array(N_SAMPLES);
+
+  // Web Audio Context for playback & decoding
+  let audioCtx = null;
+  let currentSourceNode = null;
+
+  function getAudioContext() {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+    return audioCtx;
+  }
 
   // ==================== DOM REFERENCES ====================
   const canvases = {
@@ -38,14 +71,192 @@ document.addEventListener('DOMContentLoaded', () => {
     specFm:   document.getElementById('spec-fm'),
   };
 
+  // ==================== AUDIO FILE INPUT ====================
+  const fileInput = document.getElementById('audio-file-input');
+  const btnChooseFile = document.getElementById('btn-choose-file');
+  const audioFileName = document.getElementById('audio-file-name');
+  const audioFileControls = document.getElementById('audio-file-controls');
+
+  if (btnChooseFile && fileInput) {
+    btnChooseFile.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      if (audioFileName) audioFileName.textContent = `Loading ${file.name}...`;
+
+      try {
+        const arrayBuf = await file.arrayBuffer();
+        const ctx = getAudioContext();
+        const audioBuf = await ctx.decodeAudioData(arrayBuf);
+        // Extract first channel as Float32Array
+        audioFileBuffer = audioBuf.getChannelData(0);
+        audioFileOffset = 0;
+        if (audioFileName) audioFileName.textContent = `Loaded: ${file.name} (${audioBuf.duration.toFixed(1)}s)`;
+        computeAndRender();
+      } catch (err) {
+        console.error('Failed to decode audio file:', err);
+        if (audioFileName) audioFileName.textContent = 'Error decoding audio file';
+      }
+    });
+  }
+
+  // ==================== LIVE MICROPHONE INPUT ====================
+  const micControls = document.getElementById('mic-controls');
+  const btnToggleMic = document.getElementById('btn-toggle-mic');
+  const micStatus = document.getElementById('mic-status');
+
+  async function startMic() {
+    try {
+      const ctx = getAudioContext();
+      micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      const micSource = ctx.createMediaStreamSource(micStream);
+
+      // Buffer audio samples
+      micProcessorNode = ctx.createScriptProcessor(4096, 1, 1);
+      micProcessorNode.onaudioprocess = (evt) => {
+        if (!micActive) return;
+        const inputData = evt.inputBuffer.getChannelData(0);
+        micBuffer.set(inputData);
+        computeAndRender();
+      };
+
+      micSource.connect(micProcessorNode);
+      micProcessorNode.connect(ctx.destination);
+
+      micActive = true;
+      if (btnToggleMic) {
+        btnToggleMic.textContent = '⏹ Stop Microphone';
+        btnToggleMic.className = 'btn btn-primary btn-sm';
+      }
+      if (micStatus) micStatus.textContent = 'Mic: Streaming LIVE 🎙';
+      computeAndRender();
+    } catch (err) {
+      console.error('Microphone access denied:', err);
+      if (micStatus) micStatus.textContent = 'Mic permission denied';
+      micActive = false;
+    }
+  }
+
+  function stopMic() {
+    micActive = false;
+    if (micStream) {
+      micStream.getTracks().forEach(t => t.stop());
+      micStream = null;
+    }
+    if (micProcessorNode) {
+      micProcessorNode.disconnect();
+      micProcessorNode = null;
+    }
+    if (btnToggleMic) {
+      btnToggleMic.textContent = '🎤 Start Microphone';
+      btnToggleMic.className = 'btn btn-secondary btn-sm';
+    }
+    if (micStatus) micStatus.textContent = 'Mic: Inactive';
+  }
+
+  if (btnToggleMic) {
+    btnToggleMic.addEventListener('click', () => {
+      if (micActive) stopMic();
+      else startMic();
+    });
+  }
+
+  // ==================== AUDIO SPEAKER PLAYBACK ====================
+  const audioStatus = document.getElementById('audio-status');
+  const btnPlayMsg = document.getElementById('btn-play-msg');
+  const btnPlayAm = document.getElementById('btn-play-am');
+  const btnPlayFm = document.getElementById('btn-play-fm');
+  const btnStopAudio = document.getElementById('btn-stop-audio');
+
+  function stopSpeaker() {
+    if (currentSourceNode) {
+      try { currentSourceNode.stop(); } catch(e) {}
+      currentSourceNode = null;
+    }
+    if (audioStatus) audioStatus.textContent = 'Speaker: Idle';
+  }
+
+  function playSignal(samples, label) {
+    stopSpeaker();
+    if (!samples || samples.length === 0) return;
+
+    try {
+      const ctx = getAudioContext();
+      // Repeat/extend to at least 2 seconds if too short for a pleasant loop
+      let playLen = samples.length;
+      let repeatCount = 1;
+      if (playLen < SR * 2) {
+        repeatCount = Math.ceil((SR * 2) / playLen);
+      }
+
+      const buffer = ctx.createBuffer(1, playLen * repeatCount, SR);
+      const out = buffer.getChannelData(0);
+
+      // Measure max amplitude for safe normalization
+      let maxAbs = 0;
+      for (let i = 0; i < samples.length; i++) {
+        const a = Math.abs(samples[i]);
+        if (a > maxAbs) maxAbs = a;
+      }
+      const gain = maxAbs > 1e-5 ? 0.85 / maxAbs : 1.0;
+
+      for (let r = 0; r < repeatCount; r++) {
+        const offset = r * playLen;
+        for (let i = 0; i < playLen; i++) {
+          out[offset + i] = samples[i] * gain;
+        }
+      }
+
+      const src = ctx.createBufferSource();
+      src.buffer = buffer;
+      src.loop = true;
+      src.connect(ctx.destination);
+      src.start(0);
+      currentSourceNode = src;
+
+      if (audioStatus) {
+        audioStatus.textContent = `Playing: ${label} (Looping 🔊)`;
+        audioStatus.style.color = 'var(--color-green)';
+      }
+    } catch (err) {
+      console.error('Audio playback error:', err);
+      if (audioStatus) audioStatus.textContent = 'Speaker: Playback error';
+    }
+  }
+
+  if (btnPlayMsg) btnPlayMsg.addEventListener('click', () => playSignal(lastMsg, 'Message'));
+  if (btnPlayAm) btnPlayAm.addEventListener('click', () => playSignal(lastAmRec, 'AM Demodulated'));
+  if (btnPlayFm) btnPlayFm.addEventListener('click', () => playSignal(lastFmRec, 'FM Demodulated'));
+  if (btnStopAudio) btnStopAudio.addEventListener('click', stopSpeaker);
+
   // ==================== MAIN COMPUTE + RENDER ====================
 
   function computeAndRender() {
-    // 1. Generate message signal
-    const msg = DSP.generateWaveform(state.msgType, state.fm, state.am, 0, N_SAMPLES, SR);
+    // 1. Generate or fetch message signal
+    let msg = null;
 
-    // 2. Generate carrier (for display only)
+    if (state.msgType === 'audio-file' && audioFileBuffer && audioFileBuffer.length > 0) {
+      msg = new Float32Array(N_SAMPLES);
+      for (let i = 0; i < N_SAMPLES; i++) {
+        const idx = (audioFileOffset + i) % audioFileBuffer.length;
+        msg[i] = audioFileBuffer[idx] * state.am;
+      }
+      audioFileOffset = (audioFileOffset + N_SAMPLES) % audioFileBuffer.length;
+    } else if (state.msgType === 'mic' && micActive) {
+      msg = new Float32Array(N_SAMPLES);
+      for (let i = 0; i < N_SAMPLES; i++) {
+        msg[i] = micBuffer[i] * state.am * 3.0; // Boost mic level
+      }
+    } else {
+      msg = DSP.generateWaveform(state.msgType, state.fm, state.am, 0, N_SAMPLES, SR);
+    }
+
+    lastMsg.set(msg);
+
+    // 2. Generate carrier
     const carrier = DSP.generateSine(state.fc, state.ac, 0, N_DISPLAY, SR);
+    const fullCarrier = DSP.generateSine(state.fc, state.ac, 0, N_SAMPLES, SR);
 
     // 3. Compute link budget (hardware SNR)
     let lb = null;
@@ -62,7 +273,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 4. AM pipeline
     let amResult = null, amChan = null, amRec = null, amSpec = null, amMetrics = null;
     if (state.amEnabled) {
-      amResult = DSP.amModulate(msg, state.fc, state.ac, state.m, SR);
+      amResult = DSP.amModulate(msg, state.fc, state.ac, state.m, SR, state.amMode);
 
       if (state.noiseEnabled) {
         amChan = DSP.addAWGN(amResult.signal, state.snr);
@@ -74,7 +285,8 @@ document.addEventListener('DOMContentLoaded', () => {
         };
       }
 
-      amRec = DSP.amDemodulate(amChan.signal, SR, state.fm * 1.5);
+      amRec = DSP.amDemodulate(amChan.signal, SR, state.fm * 1.5, fullCarrier, state.amMode);
+      lastAmRec.set(amRec);
       amSpec = DSP.computeSpectrum(amChan.signal, SR);
       amMetrics = DSP.computeMetrics(msg, amRec);
     }
@@ -95,16 +307,18 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       fmRec = DSP.fmDemodulate(fmChan.signal, SR, state.fm * 1.5);
+      lastFmRec.set(fmRec);
       fmSpec = DSP.computeSpectrum(fmChan.signal, SR);
       fmMetrics = DSP.computeMetrics(msg, fmRec);
     }
 
     // 6. Render waveforms
-    Renderer.drawWaveform(canvases.message, msg.slice(0, N_DISPLAY), Renderer.COLORS.cyan, 'MESSAGE', 'V');
-    Renderer.drawWaveform(canvases.carrier, carrier, Renderer.COLORS.green, 'CARRIER', 'V');
+    Renderer.drawWaveform(canvases.message, msg.slice(0, N_DISPLAY), Renderer.COLORS.cyan, `MESSAGE (${state.msgType.toUpperCase()})`, 'V');
+    Renderer.drawWaveform(canvases.carrier, carrier, Renderer.COLORS.green, 'CARRIER NCO', 'V');
 
     if (state.amEnabled && amResult) {
-      Renderer.drawWaveform(canvases.amMod, amResult.signal.slice(0, N_DISPLAY), Renderer.COLORS.gold, 'AM MODULATED', 'V');
+      const amLabel = state.amMode === 'DSB-SC' ? 'AM MODULATED (DSB-SC)' : 'AM MODULATED (DSB-FC)';
+      Renderer.drawWaveform(canvases.amMod, amResult.signal.slice(0, N_DISPLAY), Renderer.COLORS.gold, amLabel, 'V');
       Renderer.drawWaveform(canvases.amDemod, amRec.slice(0, N_DISPLAY), Renderer.COLORS.pink, 'AM DEMODULATED', 'V');
       const amNF = (state.noiseEnabled && amChan.meta) ? amChan.meta.noiseFloorDb : null;
       Renderer.drawSpectrum(canvases.specAm, amSpec.freqs, amSpec.magnitudes, Renderer.COLORS.orange, 'AM SPECTRUM', state.fc * 2.5, amNF);
@@ -146,7 +360,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const statusEl = document.getElementById('met-am-status');
       if (statusEl) {
-        statusEl.textContent = amResult.meta.isOvermod ? 'OVERMOD' : 'OK';
+        statusEl.textContent = amResult.meta.isOvermod ? 'OVERMOD' : (state.amMode === 'DSB-SC' ? 'DSB-SC' : 'OK');
         statusEl.className = 'metric-value' + (amResult.meta.isOvermod ? ' danger' : '');
       }
       setText('met-am-corr', amMetrics ? amMetrics.correlation.toFixed(3) : '---');
@@ -187,7 +401,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     budgetEl.classList.remove('hidden');
 
-    // Use whichever channel is active (prefer AM, fall back to FM)
     const chan = (amChan && amChan.meta && amChan.meta.pSig > 0) ? amChan :
                 (fmChan && fmChan.meta && fmChan.meta.pSig > 0) ? fmChan : null;
 
@@ -199,7 +412,6 @@ document.addEventListener('DOMContentLoaded', () => {
       setText('snr-theoretical', m.snrDb.toFixed(1) + ' dB');
       setText('snr-measured', m.measuredSnr.toFixed(1) + ' dB');
 
-      // Delta between set and measured SNR
       const delta = m.measuredSnr - m.snrDb;
       const deltaEl = document.getElementById('snr-delta');
       if (deltaEl) {
@@ -212,7 +424,6 @@ document.addEventListener('DOMContentLoaded', () => {
         measEl.className = 'snr-comp-value ' + (m.measuredSnr >= m.snrDb - 2 ? 'good' : 'poor');
       }
 
-      // FM improvement factor
       const beta = state.fmEnabled ? (state.deltaF / Math.max(state.fm, 1)) : 0;
       if (beta > 0) {
         const fmImprove = DSP.fmImprovementFactor(beta, state.snr);
@@ -299,50 +510,64 @@ document.addEventListener('DOMContentLoaded', () => {
   if (msgTypeEl) {
     msgTypeEl.addEventListener('change', (e) => {
       state.msgType = e.target.value;
+
+      // Conditional UI visibility
+      if (audioFileControls) {
+        audioFileControls.style.display = (state.msgType === 'audio-file') ? 'block' : 'none';
+      }
+      if (micControls) {
+        micControls.style.display = (state.msgType === 'mic') ? 'block' : 'none';
+      }
+      if (state.msgType !== 'mic' && micActive) {
+        stopMic();
+      }
+
       computeAndRender();
     });
   }
 
-  // Message signal sliders
+  // AM Mode selector
+  const amModeEl = document.getElementById('am-mode');
+  if (amModeEl) {
+    amModeEl.addEventListener('change', (e) => {
+      state.amMode = e.target.value;
+      computeAndRender();
+    });
+  }
+
+  // Sliders
   bindSlider('slider-fm', 'val-fm', 'fm', null, v => v.toFixed(0));
   bindSlider('slider-am', 'val-am', 'am', v => v / 100, v => v.toFixed(2));
-
-  // Carrier sliders
   bindSlider('slider-fc', 'val-fc', 'fc', null, v => v.toFixed(0));
   bindSlider('slider-ac', 'val-ac', 'ac', v => v / 100, v => v.toFixed(2));
-
-  // AM controls
   bindSlider('slider-m', 'val-m', 'm', v => v / 100, v => v.toFixed(2));
-
-  // FM controls
   bindSlider('slider-df', 'val-df', 'deltaF', null, v => v.toFixed(0));
-
-  // Channel / Hardware SNR controls
   bindSlider('slider-snr', 'val-snr', 'snr', null, v => v.toFixed(0));
   bindSlider('slider-txpow', 'val-txpow', 'txPower', null, v => v.toFixed(0));
   bindSlider('slider-dist', 'val-dist', 'distance', null, v => v.toFixed(1));
   bindSlider('slider-nf', 'val-nf', 'noiseFigure', null, v => v.toFixed(0));
   bindSlider('slider-bw', 'val-bw', 'rxBandwidth', null, v => v.toFixed(0));
 
-  // Toggle buttons
+  // Toggles
   bindToggle('toggle-am', 'amEnabled');
   bindToggle('toggle-fm', 'fmEnabled');
   bindToggle('toggle-noise', 'noiseEnabled');
 
-  // ==================== RESET ====================
-
+  // Reset All
   const resetBtn = document.getElementById('btn-reset');
   if (resetBtn) {
     resetBtn.addEventListener('click', () => {
+      stopSpeaker();
+      stopMic();
+
       state = {
         msgType: 'sine', fm: 1000, am: 1.0, fc: 10000, ac: 1.0,
-        m: 0.80, deltaF: 4000, snr: 25,
+        m: 0.80, deltaF: 4000, amMode: 'DSB-FC', snr: 25,
         amEnabled: true, fmEnabled: true, noiseEnabled: false,
         txPower: 0, distance: 1.0, noiseFigure: 6, rxBandwidth: 10,
         running: true
       };
 
-      // Reset all slider positions and display values
       const setSlider = (id, val, textId, textVal) => {
         const el = document.getElementById(id);
         if (el) el.value = val;
@@ -351,6 +576,10 @@ document.addEventListener('DOMContentLoaded', () => {
       };
 
       if (msgTypeEl) msgTypeEl.value = 'sine';
+      if (amModeEl) amModeEl.value = 'DSB-FC';
+      if (audioFileControls) audioFileControls.style.display = 'none';
+      if (micControls) micControls.style.display = 'none';
+
       setSlider('slider-fm', 1000, 'val-fm', '1000');
       setSlider('slider-am', 100, 'val-am', '1.00');
       setSlider('slider-fc', 10000, 'val-fc', '10000');
@@ -363,7 +592,6 @@ document.addEventListener('DOMContentLoaded', () => {
       setSlider('slider-nf', 6, 'val-nf', '6');
       setSlider('slider-bw', 10, 'val-bw', '10');
 
-      // Reset toggle buttons
       const tAm = document.getElementById('toggle-am');
       if (tAm) { tAm.classList.add('active'); tAm.textContent = 'ON'; }
       const tFm = document.getElementById('toggle-fm');
@@ -375,15 +603,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // ==================== RESIZE HANDLER ====================
+  // Resize handler
   let resizeTimeout = null;
   window.addEventListener('resize', () => {
     if (resizeTimeout) clearTimeout(resizeTimeout);
     resizeTimeout = setTimeout(() => computeAndRender(), 100);
   });
 
-  // ==================== INITIAL RENDER ====================
-  // Wait for layout to settle before first render
+  // Initial render
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
       computeAndRender();

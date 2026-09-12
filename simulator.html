@@ -22,14 +22,30 @@
       <div class="control-card">
         <h3 class="control-title">Message Signal</h3>
         <div class="slider-group">
-          <label>Waveform</label>
+          <label>Waveform Source</label>
           <select id="msg-type">
-            <option value="sine">Sine</option>
-            <option value="square">Square</option>
-            <option value="triangle">Triangle</option>
-            <option value="sawtooth">Sawtooth</option>
+            <option value="sine">Sine Wave</option>
+            <option value="square">Square Wave</option>
+            <option value="triangle">Triangle Wave</option>
+            <option value="sawtooth">Sawtooth Wave</option>
+            <option value="audio-file">📁 Audio File (WAV/MP3)</option>
+            <option value="mic">🎤 Live Microphone</option>
           </select>
         </div>
+
+        <!-- Audio File Upload UI (shown when audio-file selected) -->
+        <div id="audio-file-controls" style="display:none; margin: 0.5rem 0;">
+          <input type="file" id="audio-file-input" accept="audio/*" style="display:none;">
+          <button type="button" id="btn-choose-file" class="btn btn-secondary btn-sm" style="width:100%; font-size:0.75rem;">📁 Choose Audio File</button>
+          <span id="audio-file-name" style="font-size:0.7rem; color:var(--color-cyan); display:block; margin-top:0.25rem; word-break:break-all;"></span>
+        </div>
+
+        <!-- Live Microphone UI (shown when mic selected) -->
+        <div id="mic-controls" style="display:none; margin: 0.5rem 0;">
+          <button type="button" id="btn-toggle-mic" class="btn btn-secondary btn-sm" style="width:100%; font-size:0.75rem;">🎤 Start Microphone</button>
+          <span id="mic-status" style="font-size:0.7rem; color:var(--color-muted); display:block; margin-top:0.25rem;">Mic: Inactive</span>
+        </div>
+
         <div class="slider-group">
           <label>Frequency <span id="val-fm">1000</span> Hz</label>
           <input type="range" id="slider-fm" min="100" max="5000" value="1000" step="100">
@@ -59,6 +75,13 @@
         <div class="toggle-row">
           <span>Enable</span>
           <button id="toggle-am" class="toggle-btn active">ON</button>
+        </div>
+        <div class="slider-group">
+          <label>Mode</label>
+          <select id="am-mode">
+            <option value="DSB-FC">DSB-FC (Standard AM)</option>
+            <option value="DSB-SC">DSB-SC (Suppressed Carrier)</option>
+          </select>
         </div>
         <div class="slider-group">
           <label>Mod Index m = <span id="val-m">0.80</span></label>
@@ -106,6 +129,18 @@
           <label>Bandwidth <span id="val-bw">10</span> kHz</label>
           <input type="range" id="slider-bw" min="1" max="100" value="10" step="1">
         </div>
+      </div>
+
+      <!-- Audio Speaker Monitor -->
+      <div class="control-card">
+        <h3 class="control-title">🔊 Audio Monitor (Speaker)</h3>
+        <div style="display:flex; flex-direction:column; gap:0.35rem;">
+          <button type="button" id="btn-play-msg" class="btn btn-secondary btn-sm" style="font-size:0.75rem; text-align:left;">▶ Play Message</button>
+          <button type="button" id="btn-play-am" class="btn btn-secondary btn-sm" style="font-size:0.75rem; text-align:left;">▶ Play AM Demod</button>
+          <button type="button" id="btn-play-fm" class="btn btn-secondary btn-sm" style="font-size:0.75rem; text-align:left;">▶ Play FM Demod</button>
+          <button type="button" id="btn-stop-audio" class="btn btn-primary btn-sm" style="font-size:0.75rem; margin-top:0.2rem;">⏹ Stop Audio</button>
+        </div>
+        <span id="audio-status" style="font-size:0.68rem; color:var(--color-muted); display:block; margin-top:0.35rem;">Speaker: Idle</span>
       </div>
 
       <!-- Action Buttons -->
