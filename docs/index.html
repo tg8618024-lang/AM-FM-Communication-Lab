@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AM FM PRO | Virtual Communication Systems Laboratory</title>
+  <meta name="description" content="Interactive AM & FM modulation simulator for Electronics & Communication Engineering. Real-time waveforms, spectrum analysis, and 13 laboratory experiments.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- SECTION 1: Hero -->
+  <header class="hero">
+    <canvas id="hero-wave" class="hero-canvas"></canvas>
+    <div class="hero-content">
+      <h1 class="glow-text">AM FM PRO</h1>
+      <h2 class="subtitle">Virtual Analog Communication Systems Laboratory</h2>
+      <p class="tagline">Real-time AM & FM simulation, spectrum analysis, and 13 ECE laboratory experiments — running entirely in your browser.</p>
+      <div class="hero-buttons">
+        <a href="simulator.html" class="btn btn-primary">Launch Simulator</a>
+        <a href="https://github.com/tg8618024-lang/AM-FM-Communication-Lab" target="_blank" class="btn btn-secondary">View on GitHub</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- SECTION 2: Features Grid -->
+  <section class="features-section container">
+    <h2 class="section-title">Engineering-Grade Simulation Features</h2>
+    <div class="features-grid">
+      <div class="feature-card card">
+        <div class="feature-icon">📻</div>
+        <h3>AM Modulation</h3>
+        <p>DSB-FC, DSB-SC, SSB-USB, SSB-LSB with real-time modulation index control and overmodulation detection.</p>
+      </div>
+      <div class="feature-card card">
+        <div class="feature-icon">📶</div>
+        <h3>FM Modulation</h3>
+        <p>Precise frequency deviation control with Carson bandwidth estimation. NBFM and WBFM classification.</p>
+      </div>
+      <div class="feature-card card">
+        <div class="feature-icon">🗯️</div>
+        <h3>Channel Simulation</h3>
+        <p>Calibrated AWGN, path loss attenuation, narrowband interference, impulse noise, and flat fading models.</p>
+      </div>
+      <div class="feature-card card">
+        <div class="feature-icon">📊</div>
+        <h3>Spectrum Analysis</h3>
+        <p>Coherent rFFT with Hanning/Hamming/Blackman windowing, 99% OBW, peak detection, and 3dB bandwidth.</p>
+      </div>
+      <div class="feature-card card">
+        <div class="feature-icon">🧪</div>
+        <h3>13 Lab Experiments</h3>
+        <p>Automated experiments covering modulation index, overmodulation, Carson's rule, AWGN effects, and parameter optimization.</p>
+      </div>
+      <div class="feature-card card">
+        <div class="feature-icon">⚙️</div>
+        <h3>Design Optimization</h3>
+        <p>Constraint-based parameter search finds optimal modulation settings for bandwidth, SNR, and quality targets.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 3: Signal Flow Diagram -->
+  <section class="flow-section">
+    <div class="container">
+      <h2 class="section-title">End-to-End Communication Pipeline</h2>
+      <div class="flow-diagram">
+        <div class="flow-step card">
+          <h4>MESSAGE</h4>
+        </div>
+        <div class="flow-arrow">&gt;</div>
+        <div class="flow-step card">
+          <h4>MODULATOR</h4>
+        </div>
+        <div class="flow-arrow">&gt;</div>
+        <div class="flow-step card">
+          <h4>CHANNEL + NOISE</h4>
+        </div>
+        <div class="flow-arrow">&gt;</div>
+        <div class="flow-step card">
+          <h4>DEMODULATOR</h4>
+        </div>
+        <div class="flow-arrow">&gt;</div>
+        <div class="flow-step card">
+          <h4>RECOVERED SIGNAL</h4>
+        </div>
+        <div class="flow-arrow">&gt;</div>
+        <div class="flow-step card">
+          <h4>SPECTRUM / METRICS</h4>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 4: Screenshot Showcase -->
+  <section class="screenshots-section container">
+    <h2 class="section-title">See It In Action</h2>
+    <div class="screenshots-grid">
+      <div class="screenshot-card card">
+        <img src="https://github.com/user-attachments/assets/74642cd6-62ae-4d9c-a229-c1f524a4cbc2" alt="AM FM PRO Main Dashboard" style="width:100%; border-radius:8px; border:1px solid var(--border-med);">
+        <h4 style="margin-top:0.75rem; color:var(--color-cyan);">Real-Time Lab Dashboard</h4>
+        <p style="color:var(--color-muted); font-size:0.85rem;">Multi-channel oscilloscopes, dynamic parameter sweeps, and spectrum analyzer.</p>
+      </div>
+      <div class="screenshot-card card">
+        <img src="https://github.com/user-attachments/assets/d297ad02-66cb-4658-8cc9-1156820829bf" alt="Automated Experiment Lab" style="width:100%; border-radius:8px; border:1px solid var(--border-med);">
+        <h4 style="margin-top:0.75rem; color:var(--color-green);">13 Automated Lab Experiments</h4>
+        <p style="color:var(--color-muted); font-size:0.85rem;">Quantitative theory vs. measurement validation with error metrics.</p>
+      </div>
+      <div class="screenshot-card card">
+        <img src="https://github.com/user-attachments/assets/d696cfb0-1367-4e0b-89f4-6cd2b551da0d" alt="Spectrum & Waterfall Analysis" style="width:100%; border-radius:8px; border:1px solid var(--border-med);">
+        <h4 style="margin-top:0.75rem; color:var(--color-gold);">Spectral Density & Waterfall</h4>
+        <p style="color:var(--color-muted); font-size:0.85rem;">Coherent FFT spectrum, 99% occupied bandwidth, and time-frequency waterfall.</p>
+      </div>
+      <div class="screenshot-card card" style="display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; min-height:220px; background:linear-gradient(135deg, var(--bg-card), var(--bg-surface)); border:1px solid var(--color-cyan);">
+        <h3 style="color:var(--color-cyan); margin-bottom:0.5rem;">Interactive Simulator</h3>
+        <p style="color:var(--color-muted); font-size:0.9rem; margin-bottom:1.25rem;">Try AM/FM modulation, AWGN noise, and hardware SNR live in your browser.</p>
+        <a href="simulator.html" class="btn btn-primary">Launch Live Simulator &rarr;</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 5: Technical Specifications -->
+  <section class="specs-section">
+    <div class="container">
+      <h2 class="section-title">Built With</h2>
+      
+      <div class="tech-strip">
+        <span class="badge">Python</span>
+        <span class="badge">PyQt6</span>
+        <span class="badge">NumPy</span>
+        <span class="badge">SciPy</span>
+        <span class="badge">PyQtGraph</span>
+      </div>
+      <div class="tech-strip">
+        <span class="badge">HTML5</span>
+        <span class="badge">CSS3</span>
+        <span class="badge">JavaScript</span>
+        <span class="badge">Canvas API</span>
+        <span class="badge">GitHub Pages</span>
+      </div>
+      
+      <div class="stats-strip">
+        <div class="stat-item">
+          <span class="stat-value">5,172</span>
+          <span class="stat-label">Lines of Python DSP Code</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-value">18</span>
+          <span class="stat-label">Python Modules</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-value">19</span>
+          <span class="stat-label">Automated Tests</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-value">13</span>
+          <span class="stat-label">Lab Experiments</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 6: Footer -->
+  <footer class="footer">
+    <div class="container footer-content">
+      <h3 class="glow-text">AM FM PRO</h3>
+      <p>Built for Electronics & Communication Engineering</p>
+      <div class="footer-links">
+        <a href="https://github.com/tg8618024-lang/AM-FM-Communication-Lab" target="_blank">GitHub</a>
+        <a href="simulator.html">Launch Simulator</a>
+      </div>
+      <p style="margin-top: 2rem; font-size: 0.85rem; color: var(--color-dim);">Made with precision by Tarun</p>
+    </div>
+  </footer>
+
+  <script>
+    const canvas = document.getElementById('hero-wave');
+    const ctx = canvas.getContext('2d');
+    let t = 0;
+    
+    function resize() {
+      canvas.width = canvas.parentElement.offsetWidth;
+      canvas.height = canvas.parentElement.offsetHeight;
+    }
+    
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = '#00e5ff';
+      ctx.lineWidth = 1.5;
+      ctx.globalAlpha = 0.15;
+      
+      for (let wave = 0; wave < 3; wave++) {
+        ctx.beginPath();
+        const freq = 0.003 + wave * 0.002;
+        const amp = 30 + wave * 15;
+        const yOff = canvas.height * (0.4 + wave * 0.1);
+        
+        for (let x = 0; x < canvas.width; x++) {
+          const y = yOff + Math.sin(x * freq + t * (0.02 + wave * 0.005)) * amp;
+          x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      }
+      t++;
+      requestAnimationFrame(draw);
+    }
+    
+    window.addEventListener('resize', resize);
+    resize();
+    draw();
+  </script>
+</body>
+</html>

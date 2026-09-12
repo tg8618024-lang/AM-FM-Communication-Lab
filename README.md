@@ -2,7 +2,8 @@
 <img width="1067" height="757" alt="image" src="https://github.com/user-attachments/assets/74642cd6-62ae-4d9c-a229-c1f524a4cbc2" />
 <img width="1770" height="1137" alt="Screenshot 2026-09-03 185402" src="https://github.com/user-attachments/assets/d297ad02-66cb-4658-8cc9-1156820829bf" />
 <img width="1766" height="1135" alt="Screenshot 2026-09-03 185419" src="https://github.com/user-attachments/assets/d696cfb0-1367-4e0b-89f4-6cd2b551da0d" />
-
+> 🌐 **Live Web Simulator**: [https://tg8618024-lang.github.io/AM-FM-Communication-Lab/](https://tg8618024-lang.github.io/AM-FM-Communication-Lab/)  
+> **Interactive browser-based AM/FM lab with hardware SNR, Carson bandwidth, and real-time canvas scopes. Accessible on any mobile phone, tablet, or desktop!**
 
 A professional virtual communication systems laboratory built with Python, PyQt6, and NumPy/SciPy. Provides interactive real-time simulation, analysis, and visualization of AM and FM analog communication systems.
 
