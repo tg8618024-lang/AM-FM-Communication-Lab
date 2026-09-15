@@ -51,7 +51,7 @@ const Renderer = (() => {
   /**
    * Draw Oscilloscope Time-Domain Waveform with calibrated graticule
    */
-  function drawWaveform(canvas, data, color, label, yUnit = 'V', durationSec = 0.005, isFrozen = false) {
+  function drawWaveform(canvas, data, color, label, yUnit = 'V', durationSec = 0.005, isFrozen = false, showGrid = true) {
     const setup = setupCanvas(canvas);
     if (!setup) return;
     const { ctx, width, height } = setup;
@@ -60,8 +60,8 @@ const Renderer = (() => {
     ctx.fillStyle = COLORS.bg;
     ctx.fillRect(0, 0, width, height);
 
-    // Margins for calibrated graticule scale
-    const ml = 46, mr = 12, mt = 18, mb = 22;
+    // Margins for calibrated graticule scale (comfortable for 11-12px font)
+    const ml = 52, mr = 14, mt = 22, mb = 26;
     const pw = width - ml - mr;
     const ph = height - mt - mb;
 
@@ -92,57 +92,60 @@ const Renderer = (() => {
     const nDivX = 10;
     const nDivY = 8;
 
-    // Minor dotted grid
-    ctx.strokeStyle = COLORS.gridMinor;
-    ctx.lineWidth = 0.5;
-    ctx.setLineDash([2, 4]);
+    if (showGrid) {
+      // Minor dotted grid
+      ctx.strokeStyle = COLORS.gridMinor;
+      ctx.lineWidth = 0.5;
+      ctx.setLineDash([2, 4]);
 
-    for (let i = 1; i < nDivY; i++) {
-      const y = mt + (ph * i / nDivY);
+      for (let i = 1; i < nDivY; i++) {
+        const y = mt + (ph * i / nDivY);
+        ctx.beginPath();
+        ctx.moveTo(ml, y);
+        ctx.lineTo(ml + pw, y);
+        ctx.stroke();
+      }
+
+      for (let i = 1; i < nDivX; i++) {
+        const x = ml + (pw * i / nDivX);
+        ctx.beginPath();
+        ctx.moveTo(x, mt);
+        ctx.lineTo(x, mt + ph);
+        ctx.stroke();
+      }
+
+      // Major center crosshair (division 4 horizontal, division 5 vertical)
+      ctx.setLineDash([]);
+      ctx.strokeStyle = COLORS.crosshair;
+      ctx.lineWidth = 1.0;
+
+      const midY = mt + ph / 2;
       ctx.beginPath();
-      ctx.moveTo(ml, y);
-      ctx.lineTo(ml + pw, y);
+      ctx.moveTo(ml, midY);
+      ctx.lineTo(ml + pw, midY);
+      ctx.stroke();
+
+      const midX = ml + pw / 2;
+      ctx.beginPath();
+      ctx.moveTo(midX, mt);
+      ctx.lineTo(midX, mt + ph);
       ctx.stroke();
     }
-
-    for (let i = 1; i < nDivX; i++) {
-      const x = ml + (pw * i / nDivX);
-      ctx.beginPath();
-      ctx.moveTo(x, mt);
-      ctx.lineTo(x, mt + ph);
-      ctx.stroke();
-    }
-
-    // Major center crosshair (division 4 horizontal, division 5 vertical)
-    ctx.setLineDash([]);
-    ctx.strokeStyle = COLORS.crosshair;
-    ctx.lineWidth = 1.0;
-
-    const midY = mt + ph / 2;
-    ctx.beginPath();
-    ctx.moveTo(ml, midY);
-    ctx.lineTo(ml + pw, midY);
-    ctx.stroke();
-
-    const midX = ml + pw / 2;
-    ctx.beginPath();
-    ctx.moveTo(midX, mt);
-    ctx.lineTo(midX, mt + ph);
-    ctx.stroke();
 
     // Graticule boundary border
+    ctx.setLineDash([]);
     ctx.strokeStyle = COLORS.gridMajor;
     ctx.strokeRect(ml, mt, pw, ph);
 
     // 4. Y-axis calibration values
     ctx.fillStyle = COLORS.text;
-    ctx.font = '9px "JetBrains Mono", Consolas, monospace';
+    ctx.font = '11px "JetBrains Mono", Consolas, monospace';
     ctx.textAlign = 'right';
 
     for (let i = 0; i <= 4; i++) {
       const y = mt + (ph * i / 4);
       const val = yMax - (yMax - yMin) * i / 4;
-      ctx.fillText(`${val >= 0 ? '+' : ''}${val.toFixed(2)}${yUnit}`, ml - 4, y + 3);
+      ctx.fillText(`${val >= 0 ? '+' : ''}${val.toFixed(2)}${yUnit}`, ml - 6, y + 4);
     }
 
     // 5. X-axis time calibration values (in ms)
@@ -151,19 +154,20 @@ const Renderer = (() => {
     for (let i = 0; i <= 4; i++) {
       const x = ml + (pw * i / 4);
       const t = (totalMs * i / 4).toFixed(1);
-      ctx.fillText(`${t}ms`, x, height - 6);
+      ctx.fillText(`${t}ms`, x, height - 8);
     }
     ctx.textAlign = 'left';
 
     // 6. Channel header & telemetry tag
     ctx.fillStyle = color;
-    ctx.font = '10px "JetBrains Mono", Consolas, monospace';
-    ctx.fillText(`CH1: ${label}`, ml + 6, mt - 5);
+    ctx.font = '12px "JetBrains Mono", Consolas, monospace';
+    ctx.fillText(`CH1: ${label}`, ml + 6, mt - 6);
 
     if (data && data.length > 0) {
       ctx.fillStyle = COLORS.textDim;
+      ctx.font = '11px "JetBrains Mono", Consolas, monospace';
       ctx.textAlign = 'right';
-      ctx.fillText(`Vpp: ${vpp.toFixed(2)}V | Vrms: ${vrms.toFixed(2)}V`, ml + pw - 4, mt - 5);
+      ctx.fillText(`Vpp: ${vpp.toFixed(2)}V | Vrms: ${vrms.toFixed(2)}V`, ml + pw - 4, mt - 6);
       ctx.textAlign = 'left';
     }
 
@@ -251,7 +255,7 @@ const Renderer = (() => {
   /**
    * Draw Calibrated RF Spectrum Analyzer with sidebands & noise floor
    */
-  function drawSpectrum(canvas, freqs, magnitudes, color, label, fMax = 22050, noiseFloorDb = null, fc = null, fm = null, carsonBw = null) {
+  function drawSpectrum(canvas, freqs, magnitudes, color, label, fMax = 22050, noiseFloorDb = null, fc = null, fm = null, carsonBw = null, showGrid = true) {
     const setup = setupCanvas(canvas);
     if (!setup) return;
     const { ctx, width, height } = setup;
@@ -259,7 +263,7 @@ const Renderer = (() => {
     ctx.fillStyle = COLORS.bg;
     ctx.fillRect(0, 0, width, height);
 
-    const ml = 46, mr = 12, mt = 18, mb = 22;
+    const ml = 52, mr = 14, mt = 22, mb = 26;
     const pw = width - ml - mr;
     const ph = height - mt - mb;
 
@@ -268,24 +272,26 @@ const Renderer = (() => {
     const dbMin = -90, dbMax = 0;
 
     // 1. Graticule
-    ctx.strokeStyle = COLORS.gridMinor;
-    ctx.lineWidth = 0.5;
-    ctx.setLineDash([2, 4]);
+    if (showGrid) {
+      ctx.strokeStyle = COLORS.gridMinor;
+      ctx.lineWidth = 0.5;
+      ctx.setLineDash([2, 4]);
 
-    for (let i = 1; i < 6; i++) {
-      const y = mt + (ph * i / 6);
-      ctx.beginPath();
-      ctx.moveTo(ml, y);
-      ctx.lineTo(ml + pw, y);
-      ctx.stroke();
-    }
+      for (let i = 1; i < 6; i++) {
+        const y = mt + (ph * i / 6);
+        ctx.beginPath();
+        ctx.moveTo(ml, y);
+        ctx.lineTo(ml + pw, y);
+        ctx.stroke();
+      }
 
-    for (let i = 1; i < 8; i++) {
-      const x = ml + (pw * i / 8);
-      ctx.beginPath();
-      ctx.moveTo(x, mt);
-      ctx.lineTo(x, mt + ph);
-      ctx.stroke();
+      for (let i = 1; i < 8; i++) {
+        const x = ml + (pw * i / 8);
+        ctx.beginPath();
+        ctx.moveTo(x, mt);
+        ctx.lineTo(x, mt + ph);
+        ctx.stroke();
+      }
     }
 
     ctx.setLineDash([]);
@@ -294,13 +300,13 @@ const Renderer = (() => {
 
     // 2. Y-Axis in dBFS
     ctx.fillStyle = COLORS.text;
-    ctx.font = '9px "JetBrains Mono", Consolas, monospace';
+    ctx.font = '11px "JetBrains Mono", Consolas, monospace';
     ctx.textAlign = 'right';
 
     for (let i = 0; i <= 6; i++) {
       const y = mt + (ph * i / 6);
       const db = dbMax - (dbMax - dbMin) * i / 6;
-      ctx.fillText(`${db.toFixed(0)}dB`, ml - 4, y + 3);
+      ctx.fillText(`${db.toFixed(0)}dB`, ml - 6, y + 4);
     }
 
     // 3. X-Axis in kHz
@@ -308,14 +314,14 @@ const Renderer = (() => {
     for (let i = 0; i <= 4; i++) {
       const x = ml + (pw * i / 4);
       const fKhz = (fMax * i / 4) / 1000;
-      ctx.fillText(`${fKhz.toFixed(1)}k`, x, height - 6);
+      ctx.fillText(`${fKhz.toFixed(1)}k`, x, height - 8);
     }
     ctx.textAlign = 'left';
 
     // 4. Header title
     ctx.fillStyle = color;
-    ctx.font = '10px "JetBrains Mono", monospace';
-    ctx.fillText(`FFT SPECTRUM: ${label} [RBW: 10.7 Hz]`, ml + 6, mt - 5);
+    ctx.font = '12px "JetBrains Mono", monospace';
+    ctx.fillText(`FFT SPECTRUM: ${label} [RBW: 10.7 Hz]`, ml + 6, mt - 6);
 
     if (!freqs || freqs.length === 0 || !magnitudes || magnitudes.length === 0) {
       ctx.fillStyle = COLORS.textDim;

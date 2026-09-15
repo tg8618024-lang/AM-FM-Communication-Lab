@@ -1,56 +1,80 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 /* ==========================================================================
-   AM/FM PRO — RF & DSP INSTRUMENTATION DESIGN SYSTEM
-   Theme: Precision Scientific & Test Equipment (Keysight / Tektronix Caliber)
+   AM/FM PRO — RF & DSP INSTRUMENTATION DESIGN SYSTEM v4.0
+   Theme: Precision Scientific Test Bench (Keysight / Tektronix Caliber)
+   Responsive, Accessible, and 100% Zoom Optimized
    ========================================================================== */
 
 :root {
   /* Surface & Chassis Hierarchy */
   --bg-app: #080b12;             /* Deep bench chassis */
   --bg-surface: #0f1420;         /* Primary panel bezel */
-  --bg-card: #151b2a;            /* Sub-assembly enclosure */
-  --bg-card-hover: #1a2235;      /* Interactive elevation */
-  --bg-display: #05070d;         /* CRT / High-contrast LCD graticule viewport */
-  --bg-control: #1a2234;         /* Inset control well */
-  --bg-input: #0e1320;           /* Field input background */
+  --bg-card: #141b2a;            /* Enclosure module background */
+  --bg-card-hover: #1b2438;      /* Interactive hover state */
+  --bg-display: #05070d;         /* High-contrast CRT/LCD graticule viewport */
+  --bg-control: #182032;         /* Inset slider / control well */
+  --bg-input: #0b0f19;           /* Number & text input background */
 
-  /* Precision Engineering Hairlines */
-  --border-dim: #1e2638;         /* Subtle structural separator */
-  --border-med: #2a354d;         /* Standard panel border */
-  --border-bright: #3e4d6d;      /* Focused card boundary */
-  --border-active: #00e5ff;      /* Active state border */
+  /* Precision Engineering Borders */
+  --border-dim: #1e2638;         /* Structural subtle hairline */
+  --border-med: #2a364f;         /* Standard panel border */
+  --border-bright: #3f4f72;      /* Hovered or focused boundary */
+  --border-active: #00e5ff;      /* Highlight accent border */
 
-  /* Semantic Signal Colors — STRICT ENGINEERING TAXONOMY */
-  --sig-message: #00e5ff;        /* Cyan: Baseband Message Input x(t) */
-  --sig-carrier: #00e676;        /* Phosphor Green: Carrier NCO c(t) */
-  --sig-am: #ffb300;             /* Precision Amber/Gold: AM Modulated s_AM(t) */
+  /* Semantic Signal Color Taxonomies */
+  --sig-message: #00e5ff;        /* Cyan: Baseband Message x(t) */
+  --sig-carrier: #00e676;        /* Phosphor Green: Carrier Oscillator c(t) */
+  --sig-am: #ffb300;             /* Precision Gold: AM Modulated s_AM(t) */
   --sig-am-demod: #ff6090;       /* Rose: AM Recovered Baseband */
-  --sig-fm: #b388ff;             /* Scientific Violet: FM Modulated s_FM(t) */
-  --sig-fm-demod: #00e676;       /* Bright Green: FM Recovered Baseband */
-  --sig-inst-freq: #7c4dff;      /* Deep Purple: Instantaneous Frequency f(t) */
-  --sig-noise: #ff334b;          /* Crimson: Channel AWGN & Noise Floor */
+  --sig-fm: #b388ff;             /* Scientific Purple: FM Modulated s_FM(t) */
+  --sig-fm-demod: #00e676;       /* Phosphor Green: FM Recovered Baseband */
+  --sig-inst-freq: #7c4dff;      /* Deep Purple: Instantaneous Frequency */
+  --sig-noise: #ff334b;          /* Crimson: Channel AWGN & Noise */
 
-  /* State & Diagnostic Semantics */
-  --state-normal: #00e676;       /* Valid / Within Spec */
-  --state-warn: #ff9100;         /* Overmodulation / Approaching Limits */
-  --state-danger: #ff1744;       /* Clipping / Severe Distortion / Low SNR */
-  --state-info: #00b0ff;         /* Informational telemetry */
+  /* State Semantics */
+  --state-normal: #00e676;       /* Normal / Within spec */
+  --state-warn: #ff9100;         /* Overmodulation alert */
+  --state-danger: #ff1744;       /* Clipping / Severe distortion */
+  --state-info: #38bdf8;         /* Diagnostic information */
 
   /* Typography Colors */
-  --text-primary: #f1f5f9;       /* High-contrast graticule readouts */
-  --text-secondary: #94a3b8;     /* Parameter labels & secondary metadata */
+  --text-primary: #f8fafc;       /* High-contrast primary text */
+  --text-secondary: #94a3b8;     /* Field labels & descriptions */
   --text-dim: #64748b;           /* Inactive units & helper tags */
   --text-mono-accent: #38bdf8;   /* Monospace readout highlight */
 
-  /* Typography Families */
+  /* Typography Families & Hierarchy */
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  --font-mono: 'JetBrains Mono', 'Consolas', monospace;
 
-  /* Layout Constants */
-  --header-height: 52px;
-  --toolbar-height: 38px;
-  --metrics-height: 48px;
+  --font-size-title: 18px;
+  --font-size-section: 15px;
+  --font-size-label: 14px;
+  --font-size-val: 15px;
+  --font-size-scope-title: 13px;
+  --font-size-axis: 12px;
+
+  /* Spacing System */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+
+  /* Touch & Click Targets */
+  --ctrl-height: 40px;
+  --btn-height: 42px;
+  --input-height: 40px;
+  --slider-track-height: 8px;
+  --slider-thumb-size: 22px;
+
+  /* Layout Heights & Widths */
+  --panel-width: 340px;
+  --header-height: 54px;
+  --toolbar-height: 42px;
+  --metrics-height: 52px;
   --radius-sm: 4px;
   --radius-md: 6px;
   --radius-lg: 8px;
@@ -69,14 +93,14 @@ html, body {
   background-color: var(--bg-app);
   color: var(--text-primary);
   font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 /* ==========================================================================
-   INSTRUMENT HEADER & STATUS BAR
+   1. TOP APPLICATION HEADER
    ========================================================================== */
 .inst-header {
   height: var(--header-height);
@@ -85,15 +109,45 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 16px;
+  padding: 0 14px;
   z-index: 50;
   user-select: none;
+  gap: 12px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.btn-drawer-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-med);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 13px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  min-height: 36px;
+  transition: all 0.15s ease;
+}
+
+.btn-drawer-toggle:hover {
+  border-color: var(--sig-message);
+  color: var(--sig-message);
 }
 
 .inst-branding {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .inst-logo-badge {
@@ -109,13 +163,20 @@ html, body {
 }
 
 .inst-title-block h1 {
-  font-size: 14px;
+  font-size: var(--font-size-title);
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
   color: var(--text-primary);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  line-height: 1.2;
+}
+
+.title-sub-tag {
+  font-weight: 400;
+  color: var(--text-dim);
+  font-size: 12px;
 }
 
 .inst-subtitle {
@@ -126,14 +187,67 @@ html, body {
   text-transform: uppercase;
 }
 
-/* Header Telemetry Pill */
-.inst-telemetry {
+/* Center Header: Mode Switcher & Telemetry */
+.header-center {
   display: flex;
   align-items: center;
   gap: 16px;
+  flex-shrink: 0;
+}
+
+.header-mode-selector {
+  display: flex;
+  background: var(--bg-card);
+  border: 1px solid var(--border-med);
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  gap: 2px;
+}
+
+.btn-mode-tab {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 5px 14px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  min-height: 32px;
+}
+
+.btn-mode-tab:hover {
+  color: var(--text-primary);
+}
+
+.btn-mode-tab.active {
+  background: var(--sig-message);
+  color: #040812;
+  box-shadow: 0 0 10px rgba(0, 229, 255, 0.4);
+}
+
+.btn-mode-tab[data-mode="am"].active {
+  background: var(--sig-am);
+  color: #040812;
+  box-shadow: 0 0 10px rgba(255, 179, 0, 0.4);
+}
+
+.btn-mode-tab[data-mode="fm"].active {
+  background: var(--sig-fm);
+  color: #040812;
+  box-shadow: 0 0 10px rgba(179, 136, 255, 0.4);
+}
+
+/* Telemetry Pill */
+.inst-telemetry {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   background-color: var(--bg-card);
   border: 1px solid var(--border-dim);
-  padding: 4px 14px;
+  padding: 4px 12px;
   border-radius: var(--radius-sm);
   font-family: var(--font-mono);
   font-size: 11px;
@@ -147,7 +261,7 @@ html, body {
 
 .telem-label {
   color: var(--text-dim);
-  font-size: 9px;
+  font-size: 10px;
   text-transform: uppercase;
 }
 
@@ -176,6 +290,7 @@ html, body {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .btn-tool {
@@ -183,16 +298,16 @@ html, body {
   border: 1px solid var(--border-med);
   color: var(--text-primary);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
-  padding: 5px 12px;
+  padding: 6px 12px;
   border-radius: var(--radius-sm);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 6px;
   transition: all 0.15s ease;
-  min-height: 28px;
+  min-height: 36px;
 }
 
 .btn-tool:hover {
@@ -207,20 +322,18 @@ html, body {
   color: var(--sig-message);
 }
 
-.btn-tool.btn-primary {
-  background-color: #00e5ff;
-  border-color: #00e5ff;
-  color: #040812;
-  font-weight: 700;
+.btn-tool.btn-danger {
+  color: var(--state-danger);
+  border-color: rgba(255, 23, 68, 0.3);
 }
 
-.btn-tool.btn-primary:hover {
-  background-color: #33ebff;
-  box-shadow: 0 0 14px rgba(0, 229, 255, 0.4);
+.btn-tool.btn-danger:hover {
+  background-color: rgba(255, 23, 68, 0.15);
+  border-color: var(--state-danger);
 }
 
 /* ==========================================================================
-   WORKFLOW MODULE BAR (NAVIGATION TABS)
+   2. WORKFLOW MODULE BAR
    ========================================================================== */
 .inst-workflow-bar {
   height: var(--toolbar-height);
@@ -229,15 +342,16 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 16px;
+  padding: 0 14px;
   user-select: none;
+  gap: 12px;
 }
 
 .workflow-tabs {
   display: flex;
   gap: 2px;
   background-color: var(--bg-app);
-  padding: 3px;
+  padding: 2px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-dim);
 }
@@ -247,15 +361,16 @@ html, body {
   border: none;
   color: var(--text-secondary);
   font-family: var(--font-sans);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
-  padding: 4px 14px;
+  padding: 5px 12px;
   border-radius: 3px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 6px;
   transition: all 0.15s ease;
+  min-height: 30px;
 }
 
 .tab-btn:hover {
@@ -279,7 +394,7 @@ html, body {
   align-items: center;
   gap: 8px;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .preset-select {
@@ -287,28 +402,72 @@ html, body {
   border: 1px solid var(--border-med);
   color: var(--text-primary);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   padding: 4px 10px;
   border-radius: var(--radius-sm);
   outline: none;
   cursor: pointer;
-  height: 28px;
+  height: 32px;
 }
 
 /* ==========================================================================
-   APP SHELL LAYOUT (CHASSIS WORKSTATION)
+   3. RESIZABLE APPLICATION SHELL
    ========================================================================== */
 .inst-shell {
-  display: grid;
-  grid-template-columns: 330px 1fr;
+  display: flex;
   height: calc(100vh - var(--header-height) - var(--toolbar-height) - var(--metrics-height));
+  position: relative;
   overflow: hidden;
 }
 
+/* Desktop Collapse Mode */
+.inst-shell.panel-collapsed .inst-rack {
+  display: none !important;
+}
+.inst-shell.panel-collapsed .panel-resizer {
+  display: none !important;
+}
+
+/* Drawer Overlay for Mobile / Tablet */
+.drawer-overlay {
+  position: fixed;
+  top: var(--header-height);
+  left: 0;
+  right: 0;
+  bottom: var(--metrics-height);
+  background: rgba(4, 7, 14, 0.75);
+  backdrop-filter: blur(3px);
+  z-index: 95;
+  display: none;
+}
+.drawer-overlay.active {
+  display: block;
+}
+
+/* Resizable Horizontal Handle (Desktop) */
+.panel-resizer {
+  width: 6px;
+  background-color: var(--border-dim);
+  cursor: col-resize;
+  flex-shrink: 0;
+  transition: background-color 0.15s ease;
+  position: relative;
+  z-index: 20;
+}
+
+.panel-resizer:hover,
+.panel-resizer.resizing {
+  background-color: var(--sig-message);
+}
+
 /* ==========================================================================
-   SIDEBAR: STRUCTURED PARAMETER RACK
+   4. DEDICATED PARAMETER RACK / CONTROL PANEL
    ========================================================================== */
 .inst-rack {
+  width: var(--panel-width);
+  min-width: 280px;
+  max-width: 480px;
+  flex-shrink: 0;
   background-color: var(--bg-surface);
   border-right: 1px solid var(--border-dim);
   overflow-y: auto;
@@ -319,41 +478,111 @@ html, body {
   gap: 8px;
   scrollbar-width: thin;
   scrollbar-color: var(--border-med) transparent;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.inst-rack::-webkit-scrollbar { width: 5px; }
+.inst-rack::-webkit-scrollbar { width: 6px; }
 .inst-rack::-webkit-scrollbar-thumb { background: var(--border-med); border-radius: 3px; }
 
-/* Collapsible Parameter Card */
-.param-card {
+/* Drawer Header for Mobile */
+.rack-drawer-header {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-med);
+  border-radius: var(--radius-sm);
+  margin-bottom: 4px;
+}
+
+.drawer-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--sig-message);
+}
+
+.btn-close-drawer {
+  background: transparent;
+  border: 1px solid var(--border-med);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.btn-close-drawer:hover {
+  color: var(--text-primary);
+  border-color: var(--state-danger);
+}
+
+/* Accordion Component */
+.accordion-card {
   background-color: var(--bg-card);
   border: 1px solid var(--border-dim);
   border-radius: var(--radius-md);
-  padding: 10px 12px;
+  overflow: hidden;
   transition: border-color 0.2s ease;
 }
 
-.param-card:focus-within {
+.accordion-card:focus-within {
   border-color: var(--border-bright);
 }
 
-.param-card-header {
+.accordion-header {
+  width: 100%;
+  background: var(--bg-card);
+  border: none;
+  padding: 10px 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--border-dim);
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.15s ease;
+}
+
+.accordion-header:hover {
+  background-color: var(--bg-card-hover);
+}
+
+.accordion-arrow {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  transition: transform 0.2s ease;
+}
+
+.accordion-body {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: rgba(0, 0, 0, 0.18);
+  border-top: 1px solid var(--border-dim);
+}
+
+.accordion-card.collapsed .accordion-body {
+  display: none;
+}
+
+.accordion-card.collapsed .accordion-arrow {
+  transform: rotate(-90deg);
 }
 
 .card-title-badge {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
+  font-size: var(--font-size-section);
   font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
 .card-title-badge.badge-msg { color: var(--sig-message); }
@@ -363,78 +592,128 @@ html, body {
 .card-title-badge.badge-chan { color: var(--sig-noise); }
 .card-title-badge.badge-audio { color: #f43f5e; }
 
-/* Individual Parameter Control Row */
-.ctrl-row {
+.card-sub-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-dim);
   margin-bottom: 8px;
 }
-.ctrl-row:last-child {
-  margin-bottom: 0;
+
+.btn-badge-toggle {
+  background: var(--bg-input);
+  border: 1px solid var(--border-med);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.btn-badge-toggle.active {
+  background: rgba(0, 229, 255, 0.15);
+  border-color: var(--sig-message);
+  color: var(--sig-message);
+}
+
+/* ==========================================================================
+   5. LARGE, ACCESSIBLE CONTROLS & INPUTS
+   ========================================================================== */
+.ctrl-row {
+  display: flex;
+  flex-direction: column;
 }
 
 .ctrl-label-line {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
-  margin-bottom: 3px;
+  margin-bottom: 5px;
 }
 
 .ctrl-title {
-  font-size: 11px;
-  color: var(--text-secondary);
-  font-weight: 500;
+  font-size: var(--font-size-label);
+  color: var(--text-primary);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
-.ctrl-readout {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-primary);
+.ctrl-readout-wrap {
   display: inline-flex;
-  align-items: baseline;
-  gap: 3px;
+  align-items: center;
+  gap: 4px;
+}
+
+.inst-numbox {
+  height: var(--input-height);
+  width: 80px;
+  background-color: var(--bg-input);
+  border: 1px solid var(--border-med);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-val);
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  text-align: right;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.inst-numbox:focus {
+  border-color: var(--sig-message);
+  box-shadow: 0 0 6px rgba(0, 229, 255, 0.3);
 }
 
 .ctrl-unit {
-  font-size: 9px;
-  color: var(--text-dim);
-  font-weight: 400;
-}
-
-.ctrl-limits {
-  font-size: 9px;
+  font-size: 13px;
   color: var(--text-dim);
   font-family: var(--font-mono);
+  font-weight: 600;
+  min-width: 20px;
 }
 
-/* Precision Slider Styling */
 .range-container {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  width: 100%;
+  margin-top: 3px;
 }
 
 input[type=range].inst-slider {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  height: 5px;
+  height: var(--slider-track-height);
   background: var(--bg-control);
-  border-radius: 3px;
+  border-radius: 4px;
   outline: none;
   border: 1px solid var(--border-dim);
   cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+input[type=range].inst-slider:hover {
+  background: #1f2a42;
 }
 
 input[type=range].inst-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 15px;
-  height: 15px;
-  border-radius: 3px;
-  background: #e2e8f0;
-  border: 2px solid var(--bg-card);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+  width: var(--slider-thumb-size);
+  height: var(--slider-thumb-size);
+  border-radius: 4px;
+  background: #f1f5f9;
+  border: 2px solid var(--bg-surface);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.7);
   cursor: pointer;
-  transition: transform 0.1s ease, background-color 0.15s;
+  transition: transform 0.1s ease, background-color 0.15s ease;
 }
 
 input[type=range].inst-slider::-webkit-slider-thumb:hover {
@@ -443,54 +722,34 @@ input[type=range].inst-slider::-webkit-slider-thumb:hover {
 }
 
 input[type=range].inst-slider::-moz-range-thumb {
-  width: 15px;
-  height: 15px;
-  border-radius: 3px;
-  background: #e2e8f0;
-  border: 2px solid var(--bg-card);
+  width: var(--slider-thumb-size);
+  height: var(--slider-thumb-size);
+  border-radius: 4px;
+  background: #f1f5f9;
+  border: 2px solid var(--bg-surface);
   cursor: pointer;
 }
 
-/* Precision Number Box */
-.inst-numbox {
-  width: 60px;
-  background-color: var(--bg-input);
-  border: 1px solid var(--border-med);
-  color: var(--text-primary);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 600;
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
-  text-align: right;
-  outline: none;
-}
-
-.inst-numbox:focus {
-  border-color: var(--sig-message);
-}
-
-/* Select & Segment Buttons */
+/* Select & Segmented Switches */
 .inst-select {
   width: 100%;
+  height: var(--btn-height);
   background-color: var(--bg-input);
   border: 1px solid var(--border-med);
   color: var(--text-primary);
   font-family: var(--font-sans);
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 500;
-  padding: 5px 8px;
+  padding: 6px 12px;
   border-radius: var(--radius-sm);
   outline: none;
   cursor: pointer;
-  margin-top: 2px;
 }
 
 .inst-select:focus {
   border-color: var(--sig-message);
 }
 
-/* Segmented Switch */
 .seg-switch {
   display: flex;
   border: 1px solid var(--border-med);
@@ -505,12 +764,13 @@ input[type=range].inst-slider::-moz-range-thumb {
   border: none;
   color: var(--text-secondary);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
-  padding: 4px 6px;
+  padding: 8px 10px;
   cursor: pointer;
   transition: all 0.15s;
   text-align: center;
+  min-height: 38px;
 }
 
 .seg-btn.active {
@@ -518,12 +778,68 @@ input[type=range].inst-slider::-moz-range-thumb {
   color: var(--text-primary);
 }
 
-/* Power & Modulation Distribution Readout */
+/* Tooltip System */
+.tooltip-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: var(--bg-control);
+  border: 1px solid var(--border-med);
+  color: var(--text-dim);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  cursor: help;
+  position: relative;
+  margin-left: 5px;
+  vertical-align: middle;
+  transition: all 0.15s ease;
+}
+
+.tooltip-trigger:hover {
+  color: var(--sig-message);
+  border-color: var(--sig-message);
+  background: rgba(0, 229, 255, 0.12);
+}
+
+.tooltip-trigger::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #0f172a;
+  color: #f1f5f9;
+  border: 1px solid var(--border-bright);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-family: var(--font-sans);
+  font-weight: 400;
+  white-space: normal;
+  width: 240px;
+  line-height: 1.4;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.75);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  z-index: 1000;
+}
+
+.tooltip-trigger:hover::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(-2px);
+}
+
+/* Power & Telemetry Tables */
 .power-table {
   width: 100%;
   margin-top: 6px;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 12px;
   border-collapse: collapse;
   background-color: var(--bg-input);
   border-radius: var(--radius-sm);
@@ -531,25 +847,25 @@ input[type=range].inst-slider::-moz-range-thumb {
 }
 
 .power-table td {
-  padding: 3px 8px;
+  padding: 5px 10px;
   border-bottom: 1px solid var(--border-dim);
 }
 .power-table tr:last-child td { border-bottom: none; }
 .power-table .p-label { color: var(--text-dim); }
-.power-table .p-val { text-align: right; font-weight: 600; color: var(--text-primary); }
+.power-table .p-val { text-align: right; font-weight: 700; color: var(--text-primary); }
 
-/* Overmodulation Danger Banner */
+/* Overmodulation Alert Banner */
 .alert-banner {
-  background-color: rgba(255, 23, 68, 0.12);
+  background-color: rgba(255, 23, 68, 0.15);
   border: 1px solid var(--state-danger);
   color: #ff8099;
-  padding: 6px 10px;
+  padding: 8px 12px;
   border-radius: var(--radius-sm);
-  font-size: 10px;
+  font-size: 12px;
   font-family: var(--font-mono);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   margin-top: 6px;
   animation: alert-pulse 2s infinite ease-in-out;
 }
@@ -563,26 +879,27 @@ input[type=range].inst-slider::-moz-range-thumb {
 .audio-dock-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 4px;
-  margin-top: 6px;
+  gap: 6px;
 }
 
 .btn-audio {
   background-color: var(--bg-input);
   border: 1px solid var(--border-med);
   color: var(--text-primary);
-  font-size: 10px;
+  font-size: 12px;
   font-family: var(--font-mono);
-  padding: 5px 6px;
+  font-weight: 600;
+  padding: 8px 10px;
   border-radius: var(--radius-sm);
   cursor: pointer;
   text-align: center;
+  min-height: 40px;
   transition: all 0.15s;
 }
 
 .btn-audio:hover {
   background-color: var(--bg-card-hover);
-  border-color: var(--text-dim);
+  border-color: var(--sig-message);
 }
 
 .btn-audio.active {
@@ -593,49 +910,81 @@ input[type=range].inst-slider::-moz-range-thumb {
 
 .btn-audio.btn-stop {
   grid-column: span 2;
-  background-color: rgba(255, 23, 68, 0.1);
-  border-color: rgba(255, 23, 68, 0.3);
+  background-color: rgba(255, 23, 68, 0.12);
+  border-color: rgba(255, 23, 68, 0.35);
   color: #ff6075;
 }
 
+.display-actions-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.btn-block {
+  width: 100%;
+  justify-content: center;
+}
+
+.sub-dock-box {
+  margin: 6px 0;
+  padding: 8px;
+  background: var(--bg-input);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-dim);
+}
+
+.file-name-tag, .status-tag {
+  font-size: 11px;
+  color: var(--sig-message);
+  display: block;
+  margin-top: 4px;
+  word-break: break-all;
+  text-align: center;
+}
+
 /* ==========================================================================
-   CENTER DISPLAY AREA: INSTRUMENT WORKSTATION
+   6. CENTER INSTRUMENT WORKSTATION / WAVEFORM AREA
    ========================================================================== */
 .inst-workstation {
+  flex: 1;
+  min-width: 0;
   background-color: var(--bg-app);
   display: flex;
   flex-direction: column;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 8px;
-  gap: 8px;
+  padding: 10px;
+  gap: 10px;
   scrollbar-width: thin;
   scrollbar-color: var(--border-med) transparent;
 }
 
-/* Screen Mode Filtering */
+/* Mode Filtering */
 [data-view="am"] .mode-fm-only { display: none !important; }
+[data-view="am"] .mode-am-only { display: flex !important; }
+[data-view="am"] .mode-fm-only-card { display: none !important; }
+[data-view="am"] .mode-am-only-card { display: block !important; }
+
 [data-view="fm"] .mode-am-only { display: none !important; }
+[data-view="fm"] .mode-fm-only { display: flex !important; }
+[data-view="fm"] .mode-am-only-card { display: none !important; }
+[data-view="fm"] .mode-fm-only-card { display: block !important; }
 
 /* Grid of Oscilloscope Bezel Windows */
 .scope-viewport-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
+  gap: 10px;
 }
 
-.scope-viewport-grid.single-col {
-  grid-template-columns: 1fr;
-}
-
-/* Dedicated Spectrum Row */
 .spectrum-viewport-row {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
+  gap: 10px;
 }
 
-/* Individual Bezel Container */
+/* Individual Scope Bezel */
 .scope-bezel {
   background-color: var(--bg-display);
   border: 1px solid var(--border-dim);
@@ -644,24 +993,27 @@ input[type=range].inst-slider::-moz-range-thumb {
   flex-direction: column;
   position: relative;
   overflow: hidden;
-  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.85);
-  min-height: 140px;
+  box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.9);
+  min-height: 220px;
+  height: 250px;
+  transition: min-height 0.2s ease;
 }
 
 .scope-bezel.spectrum-bezel {
-  min-height: 170px;
+  min-height: 240px;
+  height: 260px;
 }
 
-/* Bezel Header Bar */
+/* Bezel Header Toolbar */
 .bezel-topbar {
-  height: 24px;
-  background-color: rgba(15, 20, 32, 0.85);
+  height: 32px;
+  background-color: rgba(15, 20, 32, 0.9);
   backdrop-filter: blur(4px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 8px;
+  padding: 0 10px;
   z-index: 10;
   user-select: none;
 }
@@ -671,27 +1023,52 @@ input[type=range].inst-slider::-moz-range-thumb {
   align-items: center;
   gap: 6px;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--font-size-scope-title);
   font-weight: 700;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+.bezel-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .bezel-scale-tag {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 11px;
   color: var(--text-dim);
   background-color: rgba(255, 255, 255, 0.05);
-  padding: 1px 5px;
+  padding: 2px 6px;
   border-radius: 2px;
+}
+
+.btn-scope-focus {
+  background: var(--bg-card);
+  border: 1px solid var(--border-med);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-scope-focus:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--sig-message);
+  color: var(--sig-message);
 }
 
 .bezel-canvas-wrap {
   flex: 1;
   position: relative;
   width: 100%;
-  height: calc(100% - 24px);
-  min-height: 116px;
+  height: calc(100% - 32px);
+  min-height: 180px;
 }
 
 .bezel-canvas-wrap canvas {
@@ -701,7 +1078,26 @@ input[type=range].inst-slider::-moz-range-thumb {
 }
 
 /* ==========================================================================
-   SMART ENGINEERING INSIGHT & SIGNAL FLOW PIPELINE
+   7. GRAPH FOCUS MODE
+   ========================================================================== */
+.scope-bezel.is-focused {
+  grid-column: 1 / -1 !important;
+  min-height: 480px !important;
+  height: 72vh !important;
+  z-index: 60;
+  border-color: var(--sig-message) !important;
+}
+
+.has-focused-scope .scope-bezel:not(.is-focused) {
+  display: none !important;
+}
+
+.has-focused-scope .spectrum-viewport-row:not(.is-focused) {
+  display: none !important;
+}
+
+/* ==========================================================================
+   8. SMART ENGINEERING INSIGHT & SIGNAL FLOW
    ========================================================================== */
 .smart-insight-card {
   background: linear-gradient(90deg, #101828 0%, #162238 100%);
@@ -715,35 +1111,36 @@ input[type=range].inst-slider::-moz-range-thumb {
 }
 
 .insight-icon {
-  font-size: 16px;
+  font-size: 18px;
   margin-top: 1px;
 }
 
 .insight-content h4 {
-  font-size: 11px;
+  font-family: var(--font-mono);
+  font-size: 12px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   color: var(--sig-message);
   margin-bottom: 2px;
 }
 
 .insight-content p {
-  font-size: 11px;
-  color: var(--text-secondary);
+  font-size: 13px;
+  color: var(--text-primary);
   line-height: 1.4;
 }
 
-/* Signal Flow Interactive Diagram */
+/* Signal Flow Strip */
 .signal-flow-strip {
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border-dim);
-  border-radius: var(--radius-md);
-  padding: 8px 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-md);
+  padding: 6px 12px;
   user-select: none;
+  overflow-x: auto;
 }
 
 .flow-node {
@@ -754,47 +1151,41 @@ input[type=range].inst-slider::-moz-range-thumb {
   background-color: var(--bg-card);
   border: 1px solid var(--border-dim);
   border-radius: var(--radius-sm);
-  min-width: 80px;
-  transition: all 0.2s;
+  min-width: 90px;
 }
 
 .flow-node.active {
-  border-color: var(--sig-message);
-  box-shadow: 0 0 8px rgba(0, 229, 255, 0.15);
+  border-color: var(--border-med);
+  background-color: var(--bg-card-hover);
 }
 
 .flow-node-title {
-  font-size: 9px;
   font-family: var(--font-mono);
+  font-size: 11px;
   font-weight: 700;
-  text-transform: uppercase;
-  color: var(--text-secondary);
-}
-
-.flow-node.active .flow-node-title {
-  color: var(--sig-message);
+  color: var(--text-primary);
 }
 
 .flow-node-status {
-  font-size: 8px;
-  color: var(--text-dim);
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--sig-message);
 }
 
 .flow-arrow-sep {
   color: var(--text-dim);
   font-size: 12px;
-  font-weight: 700;
 }
 
-/* Link Budget Chain Bar */
+/* Link Budget Chain Strip */
 .link-budget-strip {
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border-dim);
-  border-radius: var(--radius-md);
-  padding: 6px 12px;
   display: flex;
   align-items: center;
   gap: 8px;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-dim);
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
   overflow-x: auto;
 }
 
@@ -802,7 +1193,7 @@ input[type=range].inst-slider::-moz-range-thumb {
 
 .lb-title {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--sig-am);
   text-transform: uppercase;
@@ -819,21 +1210,21 @@ input[type=range].inst-slider::-moz-range-thumb {
 .lb-pill {
   background-color: var(--bg-card);
   border: 1px solid var(--border-med);
-  padding: 2px 8px;
+  padding: 3px 8px;
   border-radius: 3px;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;
   display: flex;
   flex-direction: column;
   align-items: center;
   white-space: nowrap;
 }
 
-.lb-pill .l-name { font-size: 8px; color: var(--text-dim); text-transform: uppercase; }
-.lb-pill .l-val  { font-weight: 600; color: var(--text-primary); }
+.lb-pill .l-name { font-size: 9px; color: var(--text-dim); text-transform: uppercase; }
+.lb-pill .l-val  { font-weight: 700; color: var(--text-primary); }
 
 /* ==========================================================================
-   FOOTER METRICS MONITOR BAR
+   9. FOOTER METRICS MONITOR BAR
    ========================================================================== */
 .inst-metrics-footer {
   height: var(--metrics-height);
@@ -842,7 +1233,7 @@ input[type=range].inst-slider::-moz-range-thumb {
   display: flex;
   align-items: center;
   padding: 0 14px;
-  gap: 20px;
+  gap: 16px;
   overflow-x: auto;
   user-select: none;
 }
@@ -852,16 +1243,16 @@ input[type=range].inst-slider::-moz-range-thumb {
   align-items: center;
   gap: 12px;
   border-right: 1px solid var(--border-dim);
-  padding-right: 16px;
+  padding-right: 14px;
   flex-shrink: 0;
 }
 .metric-group:last-child { border-right: none; }
 
 .metric-group-title {
-  font-size: 10px;
+  font-size: 11px;
   font-family: var(--font-mono);
   font-weight: 800;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 .metric-group-title.m-am { color: var(--sig-am); }
@@ -874,14 +1265,14 @@ input[type=range].inst-slider::-moz-range-thumb {
 }
 
 .m-cell-label {
-  font-size: 8px;
+  font-size: 9px;
   font-family: var(--font-mono);
   color: var(--text-dim);
   text-transform: uppercase;
 }
 
 .m-cell-val {
-  font-size: 12px;
+  font-size: 13px;
   font-family: var(--font-mono);
   font-weight: 700;
   color: var(--text-primary);
@@ -892,7 +1283,7 @@ input[type=range].inst-slider::-moz-range-thumb {
 .m-cell-val.danger { color: var(--state-danger); }
 
 /* ==========================================================================
-   MODALS: THEORY & EXPORT
+   10. MODALS: THEORY REFERENCE
    ========================================================================== */
 .modal-overlay {
   position: fixed;
@@ -905,7 +1296,7 @@ input[type=range].inst-slider::-moz-range-thumb {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 100;
+  z-index: 250;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s ease;
@@ -921,7 +1312,7 @@ input[type=range].inst-slider::-moz-range-thumb {
   border: 1px solid var(--border-bright);
   border-radius: var(--radius-lg);
   width: 90%;
-  max-width: 640px;
+  max-width: 680px;
   max-height: 85vh;
   overflow-y: auto;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8);
@@ -938,7 +1329,7 @@ input[type=range].inst-slider::-moz-range-thumb {
 }
 
 .modal-header h3 {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
   letter-spacing: 0.04em;
   color: var(--text-primary);
@@ -948,7 +1339,7 @@ input[type=range].inst-slider::-moz-range-thumb {
   background: transparent;
   border: none;
   color: var(--text-dim);
-  font-size: 18px;
+  font-size: 20px;
   cursor: pointer;
   padding: 2px 6px;
 }
@@ -956,7 +1347,7 @@ input[type=range].inst-slider::-moz-range-thumb {
 
 .modal-body {
   padding: 18px;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.6;
   color: var(--text-secondary);
 }
@@ -967,17 +1358,95 @@ input[type=range].inst-slider::-moz-range-thumb {
   border-radius: var(--radius-sm);
   padding: 8px 12px;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   color: var(--sig-message);
   margin: 6px 0 12px 0;
 }
 
 /* ==========================================================================
-   RESPONSIVE DESIGN SYSTEM
+   11. COMPREHENSIVE RESPONSIVE BREAKPOINT LOGIC
    ========================================================================== */
-@media (max-width: 1100px) {
+
+/* Medium Laptops (1366x768, 1280x720) */
+@media (max-width: 1400px) {
+  :root {
+    --panel-width: 320px;
+  }
+  .scope-bezel {
+    min-height: 200px;
+    height: 230px;
+  }
+  .scope-bezel.spectrum-bezel {
+    min-height: 220px;
+    height: 240px;
+  }
+}
+
+/* Small Laptops & Tablets (<= 1024px) */
+@media (max-width: 1024px) {
+  .panel-resizer {
+    display: none;
+  }
+
+  .inst-rack {
+    position: fixed;
+    top: var(--header-height);
+    bottom: var(--metrics-height);
+    left: 0;
+    width: 340px;
+    max-width: 86vw;
+    z-index: 100;
+    transform: translateX(-100%);
+    box-shadow: 6px 0 30px rgba(0, 0, 0, 0.85);
+    border-right: 1px solid var(--border-bright);
+  }
+
+  .inst-rack.drawer-open {
+    transform: translateX(0);
+  }
+
+  .rack-drawer-header {
+    display: flex;
+  }
+
+  .scope-viewport-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .spectrum-viewport-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Mobile Devices (<= 768px) */
+@media (max-width: 768px) {
+  .inst-header {
+    flex-wrap: wrap;
+    height: auto;
+    padding: 8px 10px;
+    gap: 8px;
+  }
+
+  .header-left, .header-center, .inst-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .inst-telemetry {
+    display: none;
+  }
+
+  .inst-workflow-bar {
+    overflow-x: auto;
+  }
+
   .inst-shell {
-    grid-template-columns: 290px 1fr;
+    height: auto;
+    min-height: calc(100vh - 160px);
+  }
+
+  .scope-bezel {
+    min-height: 220px;
   }
 }
 

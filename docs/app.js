@@ -2,13 +2,13 @@
 // Inspired by Keysight, Rohde & Schwarz, Tektronix test equipment.
 // High-performance reactive state management, interactive cursors,
 // presets, PNG capture, smart engineering insights, Web Audio API.
+// Complete responsive shell, drawer/resizable panel, graph focus mode.
 
 document.addEventListener('DOMContentLoaded', () => {
   // ==================== CONSTANTS ====================
   const SR = 44100;
-  const DISPLAY_DURATION = 0.005;  // 5ms calibrated oscilloscope window
+  const DISPLAY_DURATION = 0.005;  // 5ms base calibrated oscilloscope window
   const N_SAMPLES = 4096;          // DSP buffer size
-  const N_DISPLAY = Math.floor(SR * DISPLAY_DURATION);
 
   // ==================== INSTRUMENT STATE ====================
   let state = {
@@ -25,7 +25,11 @@ document.addEventListener('DOMContentLoaded', () => {
     distance: 1.0,    // km
     noiseFigure: 6,   // dB
     rxBandwidth: 10,  // kHz
-    frozen: false     // Freeze / Run waveform view
+    frozen: false,    // Freeze / Run waveform view
+    // Display & Scope Settings
+    timeScale: 1.0,   // 0.5x, 1x, 2x, 5x
+    showGrid: true,   // Graticule grid visibility
+    currentMode: 'all' // 'all', 'am', 'fm', 'channel', 'audio'
   };
 
   // Audio stream state
@@ -72,16 +76,262 @@ document.addEventListener('DOMContentLoaded', () => {
     if (canvas) Renderer.bindCursor(canvas, () => computeAndRender(true));
   });
 
-  // ==================== MODULE TABS (WORKFLOW BAR) ====================
-  const tabBtns = document.querySelectorAll('.tab-btn');
-  tabBtns.forEach(btn => {
+  // ==================== ACCORDION CONTROLS ====================
+  const accordionHeaders = document.querySelectorAll('.accordion-header');
+  accordionHeaders.forEach(header => {
+    header.addEventListener('click', (e) => {
+      e.preventDefault();
+      const card = header.closest('.accordion-card');
+      if (!card) return;
+      const isCollapsed = card.classList.toggle('collapsed');
+      header.setAttribute('aria-expanded', !isCollapsed);
+      const arrow = header.querySelector('.accordion-arrow');
+      if (arrow) arrow.textContent = isCollapsed ? '▶' : '▼';
+    });
+  });
+
+  // ==================== RESIZABLE CONTROL PANEL (DESKTOP) ====================
+  const resizer = document.getElementById('panel-resizer');
+  const rack = document.getElementById('inst-rack');
+  const instShell = document.querySelector('.inst-shell');
+
+  if (resizer && rack) {
+    let isResizing = false;
+
+    // Restore saved width from localStorage
+    const savedWidth = localStorage.getItem('am_fm_panel_width');
+    if (savedWidth && window.innerWidth > 1024) {
+      const w = Math.max(280, Math.min(480, parseInt(savedWidth, 10)));
+      rack.style.width = `${w}px`;
+    }
+
+    resizer.addEventListener('mousedown', (e) => {
+      if (window.innerWidth <= 1024) return;
+      isResizing = true;
+      resizer.classList.add('resizing');
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isResizing) return;
+      const newWidth = Math.max(280, Math.min(480, e.clientX));
+      rack.style.width = `${newWidth}px`;
+      localStorage.setItem('am_fm_panel_width', newWidth);
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (isResizing) {
+        isResizing = false;
+        resizer.classList.remove('resizing');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        computeAndRender();
+      }
+    });
+  }
+
+  // ==================== DRAWER / COLLAPSE PANEL TOGGLE ====================
+  const btnToggleDrawer = document.getElementById('btn-toggle-drawer');
+  const btnCloseDrawer = document.getElementById('btn-close-drawer');
+  const drawerOverlay = document.getElementById('drawer-overlay');
+
+  function openDrawer() {
+    if (rack) rack.classList.add('drawer-open');
+    if (drawerOverlay) drawerOverlay.classList.add('active');
+  }
+
+  function closeDrawer() {
+    if (rack) rack.classList.remove('drawer-open');
+    if (drawerOverlay) drawerOverlay.classList.remove('active');
+  }
+
+  function toggleControlPanel() {
+    if (window.innerWidth <= 1024) {
+      if (rack && rack.classList.contains('drawer-open')) {
+        closeDrawer();
+      } else {
+        openDrawer();
+      }
+    } else {
+      // Desktop toggle: collapse/expand panel to give waveforms full width
+      if (instShell) {
+        instShell.classList.toggle('panel-collapsed');
+        if (btnToggleDrawer) {
+          btnToggleDrawer.classList.toggle('active', !instShell.classList.contains('panel-collapsed'));
+        }
+        computeAndRender();
+      }
+    }
+  }
+
+  if (btnToggleDrawer) btnToggleDrawer.addEventListener('click', toggleControlPanel);
+  if (btnCloseDrawer) btnCloseDrawer.addEventListener('click', closeDrawer);
+  if (drawerOverlay) drawerOverlay.addEventListener('click', closeDrawer);
+
+  // ==================== AM / FM / ALL MODE SELECTOR ====================
+  const headerModeTabs = document.querySelectorAll('#header-mode-selector .btn-mode-tab');
+  const workflowTabBtns = document.querySelectorAll('.tab-btn');
+
+  function setAppMode(mode) {
+    state.currentMode = mode;
+    document.body.setAttribute('data-view', mode);
+
+    // Sync header tabs
+    headerModeTabs.forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-mode') === mode);
+    });
+
+    // Sync workflow tabs
+    workflowTabBtns.forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-tab') === mode);
+    });
+
+    computeAndRender();
+  }
+
+  headerModeTabs.forEach(btn => {
     btn.addEventListener('click', () => {
-      tabBtns.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
+      const mode = btn.getAttribute('data-mode');
+      setAppMode(mode);
+    });
+  });
+
+  workflowTabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
       const tab = btn.getAttribute('data-tab');
-      document.body.setAttribute('data-view', tab);
+      setAppMode(tab);
+    });
+  });
+
+  // ==================== GRAPH FOCUS / MAXIMIZE CONTROLS ====================
+  const scopeGrid = document.getElementById('scope-grid');
+  const spectrumRow = document.getElementById('spectrum-row');
+  const focusButtons = document.querySelectorAll('.btn-scope-focus');
+
+  function toggleFocus(bezel) {
+    if (!bezel) return;
+    const isAlreadyFocused = bezel.classList.contains('is-focused');
+
+    // Unfocus all
+    document.querySelectorAll('.scope-bezel.is-focused').forEach(b => {
+      b.classList.remove('is-focused');
+      const btn = b.querySelector('.btn-scope-focus');
+      if (btn) btn.textContent = '⛶ Focus';
+    });
+
+    if (scopeGrid) scopeGrid.classList.remove('has-focused-scope');
+    if (spectrumRow) spectrumRow.classList.remove('has-focused-scope');
+
+    if (!isAlreadyFocused) {
+      bezel.classList.add('is-focused');
+      if (scopeGrid) scopeGrid.classList.add('has-focused-scope');
+      if (spectrumRow) spectrumRow.classList.add('has-focused-scope');
+      const btn = bezel.querySelector('.btn-scope-focus');
+      if (btn) btn.textContent = '✕ Restore';
+    }
+
+    // Immediate canvas resize & redraw
+    computeAndRender();
+  }
+
+  focusButtons.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const bezel = btn.closest('.scope-bezel');
+      toggleFocus(bezel);
+    });
+  });
+
+  // ==================== FULLSCREEN CONTROLLER ====================
+  const btnFullscreen = document.getElementById('btn-fullscreen');
+  if (btnFullscreen) {
+    btnFullscreen.addEventListener('click', () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => {
+          console.warn('Fullscreen request failed:', err);
+        });
+      } else {
+        document.exitFullscreen().catch(err => {
+          console.warn('Exit fullscreen failed:', err);
+        });
+      }
+    });
+
+    document.addEventListener('fullscreenchange', () => {
+      if (document.fullscreenElement) {
+        btnFullscreen.textContent = '⛶ Exit Fullscreen';
+        btnFullscreen.classList.add('active');
+      } else {
+        btnFullscreen.textContent = '⛶ Fullscreen';
+        btnFullscreen.classList.remove('active');
+      }
+      setTimeout(() => computeAndRender(), 80);
+    });
+  }
+
+  // ==================== DISPLAY & SCALE SETTINGS ====================
+  const timeZoomBtns = document.querySelectorAll('#time-zoom-group .seg-btn');
+  timeZoomBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      timeZoomBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      state.timeScale = parseFloat(btn.getAttribute('data-scale')) || 1.0;
+
+      // Update scale tags
+      const effMs = (DISPLAY_DURATION / state.timeScale * 1000).toFixed(1);
+      const tagMsg = document.getElementById('tag-msg-scale');
+      if (tagMsg) tagMsg.textContent = `${(effMs / 10).toFixed(2)}ms/div | 0.5V/div`;
+      const tagAm = document.getElementById('tag-am-scale');
+      if (tagAm) tagAm.textContent = `${(effMs / 10).toFixed(2)}ms/div | 1.0V/div`;
+
       computeAndRender();
     });
+  });
+
+  const btnToggleGrid = document.getElementById('btn-toggle-grid');
+  if (btnToggleGrid) {
+    btnToggleGrid.addEventListener('click', () => {
+      state.showGrid = !state.showGrid;
+      btnToggleGrid.classList.toggle('active', state.showGrid);
+      btnToggleGrid.textContent = state.showGrid ? '▦ Graticule Grid: ON' : '▦ Graticule Grid: OFF';
+      computeAndRender();
+    });
+  }
+
+  const btnAutoscale = document.getElementById('btn-autoscale');
+  if (btnAutoscale) {
+    btnAutoscale.addEventListener('click', () => {
+      state.timeScale = 1.0;
+      state.showGrid = true;
+      timeZoomBtns.forEach(b => b.classList.toggle('active', b.getAttribute('data-scale') === '1.0'));
+      if (btnToggleGrid) {
+        btnToggleGrid.classList.add('active');
+        btnToggleGrid.textContent = '▦ Graticule Grid: ON';
+      }
+      computeAndRender();
+    });
+  }
+
+  // ==================== KEYBOARD NAVIGATION ====================
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      // Exit graph focus if active
+      const focusedBezel = document.querySelector('.scope-bezel.is-focused');
+      if (focusedBezel) {
+        toggleFocus(focusedBezel);
+        return;
+      }
+      // Close drawer if open
+      closeDrawer();
+      // Close theory modal if open
+      if (modalTheory && modalTheory.classList.contains('open')) {
+        modalTheory.classList.remove('open');
+      }
+    } else if (e.code === 'Space' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT') {
+      e.preventDefault();
+      toggleFreeze();
+    }
   });
 
   // ==================== AUDIO FILE UPLOAD ====================
@@ -99,52 +349,85 @@ document.addEventListener('DOMContentLoaded', () => {
       if (audioFileName) audioFileName.textContent = `Loading ${file.name}...`;
 
       try {
-        const arrayBuf = await file.arrayBuffer();
+        const arrayBuffer = await file.arrayBuffer();
         const ctx = getAudioContext();
-        const audioBuf = await ctx.decodeAudioData(arrayBuf);
-        audioFileBuffer = audioBuf.getChannelData(0);
+        const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+
+        const raw = audioBuffer.getChannelData(0);
+        const fileSr = audioBuffer.sampleRate;
+
+        // Resample to SR if necessary
+        if (fileSr !== SR) {
+          const ratio = SR / fileSr;
+          const newLen = Math.floor(raw.length * ratio);
+          audioFileBuffer = new Float32Array(newLen);
+          for (let i = 0; i < newLen; i++) {
+            const srcIdx = i / ratio;
+            const idx0 = Math.floor(srcIdx);
+            const idx1 = Math.min(idx0 + 1, raw.length - 1);
+            const frac = srcIdx - idx0;
+            audioFileBuffer[i] = raw[idx0] * (1 - frac) + raw[idx1] * frac;
+          }
+        } else {
+          audioFileBuffer = new Float32Array(raw);
+        }
+
+        // Normalize
+        let maxAbs = 0;
+        for (let i = 0; i < audioFileBuffer.length; i++) {
+          const a = Math.abs(audioFileBuffer[i]);
+          if (a > maxAbs) maxAbs = a;
+        }
+        if (maxAbs > 0) {
+          for (let i = 0; i < audioFileBuffer.length; i++) {
+            audioFileBuffer[i] /= maxAbs;
+          }
+        }
+
         audioFileOffset = 0;
-        if (audioFileName) audioFileName.textContent = `Loaded: ${file.name} (${audioBuf.duration.toFixed(1)}s)`;
+        if (audioFileName) audioFileName.textContent = `✓ ${file.name} (${(audioFileBuffer.length / SR).toFixed(1)}s)`;
         computeAndRender();
       } catch (err) {
-        console.error('Audio decode error:', err);
-        if (audioFileName) audioFileName.textContent = 'Decode error';
+        console.error('Failed to load audio file:', err);
+        if (audioFileName) audioFileName.textContent = '❌ Failed to decode audio';
       }
     });
   }
 
-  // ==================== LIVE MICROPHONE INPUT ====================
-  const micControls = document.getElementById('mic-controls');
+  // ==================== LIVE MICROPHONE ====================
   const btnToggleMic = document.getElementById('btn-toggle-mic');
   const micStatus = document.getElementById('mic-status');
+  const micControls = document.getElementById('mic-controls');
 
   async function startMic() {
     try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      micStream = stream;
       const ctx = getAudioContext();
-      micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-      const micSource = ctx.createMediaStreamSource(micStream);
+      const source = ctx.createMediaStreamSource(stream);
 
-      micProcessorNode = ctx.createScriptProcessor(4096, 1, 1);
-      micProcessorNode.onaudioprocess = (evt) => {
-        if (!micActive) return;
-        const inputData = evt.inputBuffer.getChannelData(0);
-        micBuffer.set(inputData);
-        computeAndRender();
+      const processor = ctx.createScriptProcessor(4096, 1, 1);
+      processor.onaudioprocess = (e) => {
+        const input = e.inputBuffer.getChannelData(0);
+        micBuffer.set(input);
+        if (state.msgType === 'mic' && !state.frozen) {
+          computeAndRender();
+        }
       };
 
-      micSource.connect(micProcessorNode);
-      micProcessorNode.connect(ctx.destination);
-
+      source.connect(processor);
+      processor.connect(ctx.destination);
+      micProcessorNode = processor;
       micActive = true;
+
       if (btnToggleMic) {
-        btnToggleMic.textContent = '⏹ Stop Mic';
+        btnToggleMic.textContent = '⏹ Stop Microphone';
         btnToggleMic.classList.add('active');
       }
-      if (micStatus) micStatus.textContent = 'Mic: Streaming LIVE 🎙';
-      computeAndRender();
+      if (micStatus) micStatus.textContent = 'Mic: Streaming Live';
     } catch (err) {
-      console.error('Microphone denied:', err);
-      if (micStatus) micStatus.textContent = 'Permission denied';
+      console.error('Microphone access denied:', err);
+      if (micStatus) micStatus.textContent = 'Mic: Access Denied';
       micActive = false;
     }
   }
@@ -188,7 +471,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnPlayMsg) btnPlayMsg.classList.remove('active');
     if (btnPlayAm) btnPlayAm.classList.remove('active');
     if (btnPlayFm) btnPlayFm.classList.remove('active');
-    if (audioStatus) audioStatus.textContent = 'IDLE';
+    if (audioStatus) audioStatus.textContent = 'Speaker: Idle';
   }
 
   function playSignal(samples, label, activeBtn) {
@@ -228,10 +511,10 @@ document.addEventListener('DOMContentLoaded', () => {
       currentSourceNode = src;
 
       if (activeBtn) activeBtn.classList.add('active');
-      if (audioStatus) audioStatus.textContent = `${label.toUpperCase()} 🔊`;
+      if (audioStatus) audioStatus.textContent = `Playing ${label} 🔊`;
     } catch (err) {
       console.error('Audio playback error:', err);
-      if (audioStatus) audioStatus.textContent = 'ERROR';
+      if (audioStatus) audioStatus.textContent = 'Playback Error';
     }
   }
 
@@ -249,17 +532,11 @@ document.addEventListener('DOMContentLoaded', () => {
     state.frozen = !state.frozen;
     if (btnFreeze) btnFreeze.classList.toggle('active', state.frozen);
     if (freezeIcon) freezeIcon.textContent = state.frozen ? '▶' : '⏸';
-    if (freezeText) freezeText.textContent = state.frozen ? 'RESUME' : 'FREEZE';
+    if (freezeText) freezeText.textContent = state.frozen ? 'Run' : 'Pause';
     computeAndRender();
   }
 
   if (btnFreeze) btnFreeze.addEventListener('click', toggleFreeze);
-  window.addEventListener('keydown', (e) => {
-    if (e.code === 'Space' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT') {
-      e.preventDefault();
-      toggleFreeze();
-    }
-  });
 
   // ==================== THEORY MODAL ====================
   const modalTheory = document.getElementById('modal-theory');
@@ -282,11 +559,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnExportPng = document.getElementById('btn-export-png');
   if (btnExportPng) {
     btnExportPng.addEventListener('click', () => {
-      // Capture Scope 1 as sample or combine canvases
       const activeCanvas = canvases.amMod || canvases.message;
       if (!activeCanvas) return;
       const link = document.createElement('a');
-      link.download = `AM_FM_PRO_Scope_Capture_${Date.now()}.png`;
+      link.download = `AM_FM_PRO_Capture_${Date.now()}.png`;
       link.href = activeCanvas.toDataURL('image/png');
       link.click();
     });
@@ -295,8 +571,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // ==================== MAIN COMPUTE + RENDER ====================
 
   function computeAndRender(isCursorRefresh = false) {
-    // If frozen and this is not an explicit cursor hover refresh, do not recalculate buffers
     const t0 = performance.now();
+
+    const effDuration = DISPLAY_DURATION / (state.timeScale || 1.0);
+    const nDisplay = Math.min(N_SAMPLES, Math.floor(SR * effDuration));
 
     // 1. Generate or fetch message signal
     let msg = null;
@@ -321,7 +599,7 @@ document.addEventListener('DOMContentLoaded', () => {
     lastMsg.set(msg);
 
     // 2. Generate carrier
-    const carrier = DSP.generateSine(state.fc, state.ac, 0, N_DISPLAY, SR);
+    const carrier = DSP.generateSine(state.fc, state.ac, 0, nDisplay, SR);
     const fullCarrier = DSP.generateSine(state.fc, state.ac, 0, N_SAMPLES, SR);
 
     // 3. Compute link budget (hardware RF parameters)
@@ -379,30 +657,31 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 6. Draw Oscilloscope Scopes
-    Renderer.drawWaveform(canvases.message, msg.slice(0, N_DISPLAY), Renderer.COLORS.message, `MESSAGE x(t) [${state.msgType.toUpperCase()}]`, 'V', DISPLAY_DURATION, state.frozen);
-    Renderer.drawWaveform(canvases.carrier, carrier, Renderer.COLORS.carrier, 'CARRIER c(t) [NCO]', 'V', DISPLAY_DURATION, state.frozen);
+    const showGrid = state.showGrid !== false;
+    Renderer.drawWaveform(canvases.message, msg.slice(0, nDisplay), Renderer.COLORS.message, `MESSAGE x(t) [${state.msgType.toUpperCase()}]`, 'V', effDuration, state.frozen, showGrid);
+    Renderer.drawWaveform(canvases.carrier, carrier, Renderer.COLORS.carrier, 'CARRIER c(t) [NCO]', 'V', effDuration, state.frozen, showGrid);
 
     if (state.amEnabled && amResult) {
       const amLabel = state.amMode === 'DSB-SC' ? 'AM s(t) [DSB-SC COHERENT]' : 'AM s(t) [DSB-FC ENVELOPE]';
-      Renderer.drawWaveform(canvases.amMod, amResult.signal.slice(0, N_DISPLAY), Renderer.COLORS.am, amLabel, 'V', DISPLAY_DURATION, state.frozen);
-      Renderer.drawWaveform(canvases.amDemod, amRec.slice(0, N_DISPLAY), Renderer.COLORS.amDemod, 'AM RECOVERED y(t)', 'V', DISPLAY_DURATION, state.frozen);
+      Renderer.drawWaveform(canvases.amMod, amResult.signal.slice(0, nDisplay), Renderer.COLORS.am, amLabel, 'V', effDuration, state.frozen, showGrid);
+      Renderer.drawWaveform(canvases.amDemod, amRec.slice(0, nDisplay), Renderer.COLORS.amDemod, 'AM RECOVERED y(t)', 'V', effDuration, state.frozen, showGrid);
       const amNF = (state.noiseEnabled && amChan.meta) ? amChan.meta.noiseFloorDb : null;
-      Renderer.drawSpectrum(canvases.specAm, amSpec.freqs, amSpec.magnitudes, Renderer.COLORS.spectrumAm, 'AM RF SPECTRUM', state.fc * 2.2, amNF, state.fc, state.fm);
+      Renderer.drawSpectrum(canvases.specAm, amSpec.freqs, amSpec.magnitudes, Renderer.COLORS.spectrumAm, 'AM RF SPECTRUM', state.fc * 2.2, amNF, state.fc, state.fm, null, showGrid);
     } else {
-      Renderer.drawWaveform(canvases.amMod, null, Renderer.COLORS.am, 'AM TRANSMITTED [OFF]', 'V');
-      Renderer.drawWaveform(canvases.amDemod, null, Renderer.COLORS.amDemod, 'AM RECOVERED [OFF]', 'V');
-      Renderer.drawSpectrum(canvases.specAm, null, null, Renderer.COLORS.spectrumAm, 'AM SPECTRUM [OFF]', 20000);
+      Renderer.drawWaveform(canvases.amMod, null, Renderer.COLORS.am, 'AM TRANSMITTED [OFF]', 'V', effDuration, false, showGrid);
+      Renderer.drawWaveform(canvases.amDemod, null, Renderer.COLORS.amDemod, 'AM RECOVERED [OFF]', 'V', effDuration, false, showGrid);
+      Renderer.drawSpectrum(canvases.specAm, null, null, Renderer.COLORS.spectrumAm, 'AM SPECTRUM [OFF]', 20000, null, null, null, null, showGrid);
     }
 
     if (state.fmEnabled && fmResult) {
-      Renderer.drawWaveform(canvases.fmMod, fmResult.signal.slice(0, N_DISPLAY), Renderer.COLORS.fm, 'FM TRANSMITTED s(t)', 'V', DISPLAY_DURATION, state.frozen);
-      Renderer.drawWaveform(canvases.fmDemod, fmRec.slice(0, N_DISPLAY), Renderer.COLORS.fmDemod, 'FM RECOVERED y(t)', 'V', DISPLAY_DURATION, state.frozen);
+      Renderer.drawWaveform(canvases.fmMod, fmResult.signal.slice(0, nDisplay), Renderer.COLORS.fm, 'FM TRANSMITTED s(t)', 'V', effDuration, state.frozen, showGrid);
+      Renderer.drawWaveform(canvases.fmDemod, fmRec.slice(0, nDisplay), Renderer.COLORS.fmDemod, 'FM RECOVERED y(t)', 'V', effDuration, state.frozen, showGrid);
       const fmNF = (state.noiseEnabled && fmChan.meta) ? fmChan.meta.noiseFloorDb : null;
-      Renderer.drawSpectrum(canvases.specFm, fmSpec.freqs, fmSpec.magnitudes, Renderer.COLORS.spectrumFm, 'FM RF SPECTRUM', state.fc * 2.2, fmNF, state.fc, state.fm, fmResult.meta.carsonBW);
+      Renderer.drawSpectrum(canvases.specFm, fmSpec.freqs, fmSpec.magnitudes, Renderer.COLORS.spectrumFm, 'FM RF SPECTRUM', state.fc * 2.2, fmNF, state.fc, state.fm, fmResult.meta.carsonBW, showGrid);
     } else {
-      Renderer.drawWaveform(canvases.fmMod, null, Renderer.COLORS.fm, 'FM TRANSMITTED [OFF]', 'V');
-      Renderer.drawWaveform(canvases.fmDemod, null, Renderer.COLORS.fmDemod, 'FM RECOVERED [OFF]', 'V');
-      Renderer.drawSpectrum(canvases.specFm, null, null, Renderer.COLORS.spectrumFm, 'FM SPECTRUM [OFF]', 20000);
+      Renderer.drawWaveform(canvases.fmMod, null, Renderer.COLORS.fm, 'FM TRANSMITTED [OFF]', 'V', effDuration, false, showGrid);
+      Renderer.drawWaveform(canvases.fmDemod, null, Renderer.COLORS.fmDemod, 'FM RECOVERED [OFF]', 'V', effDuration, false, showGrid);
+      Renderer.drawSpectrum(canvases.specFm, null, null, Renderer.COLORS.spectrumFm, 'FM SPECTRUM [OFF]', 20000, null, null, null, null, showGrid);
     }
 
     // 7. Update Telemetry & Insights
@@ -448,7 +727,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (fmResult && fmResult.meta) {
       setText('pwr-beta', fmResult.meta.beta.toFixed(2));
       setText('pwr-carson', (fmResult.meta.carsonBW / 1000).toFixed(1) + ' kHz');
-      setText('pwr-fm-regime', fmResult.meta.isNBFM ? 'NBFM (Narrowband)' : 'WBFM (Wideband)');
+      setText('pwr-fm-regime', fmResult.meta.isNBFM ? 'NBFM' : 'WBFM');
 
       setText('met-fm-beta', fmResult.meta.beta.toFixed(2));
       setText('met-fm-df', state.deltaF.toFixed(0) + ' Hz');
@@ -695,7 +974,7 @@ document.addEventListener('DOMContentLoaded', () => {
         m: 0.80, deltaF: 4000, amMode: 'DSB-FC', snr: 25,
         amEnabled: true, fmEnabled: true, noiseEnabled: false,
         txPower: 0, distance: 1.0, noiseFigure: 6, rxBandwidth: 10,
-        frozen: false
+        frozen: false, timeScale: 1.0, showGrid: true, currentMode: 'all'
       };
 
       if (selPreset) selPreset.value = 'default';
@@ -704,6 +983,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (micControls) micControls.style.display = 'none';
 
       setAmMode('DSB-FC');
+      setAppMode('all');
 
       const tAm = document.getElementById('toggle-am');
       if (tAm) { tAm.classList.add('active'); tAm.textContent = 'AM ON'; }
@@ -712,11 +992,17 @@ document.addEventListener('DOMContentLoaded', () => {
       const tNoise = document.getElementById('toggle-noise');
       if (tNoise) { tNoise.classList.remove('active'); tNoise.textContent = 'NOISE OFF'; }
 
+      timeZoomBtns.forEach(b => b.classList.toggle('active', b.getAttribute('data-scale') === '1.0'));
+      if (btnToggleGrid) {
+        btnToggleGrid.classList.add('active');
+        btnToggleGrid.textContent = '▦ Graticule Grid: ON';
+      }
+
       computeAndRender();
     });
   }
 
-  // Window resize handler
+  // Window resize handler with debounce
   let resizeTimer = null;
   window.addEventListener('resize', () => {
     if (resizeTimer) clearTimeout(resizeTimer);
