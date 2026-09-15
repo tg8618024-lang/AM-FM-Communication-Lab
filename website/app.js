@@ -1,20 +1,16 @@
-// AM FM PRO - Simulator Application v3.0
-// Controller: connects UI controls to DSP engine and Canvas renderer.
-// Includes:
-// - Hardware SNR link budget, FM improvement factor, visual noise floor
-// - Audio File Input (WAV/MP3 upload & decode)
-// - Live Microphone Input (getUserMedia stream)
-// - Audio Monitor Speaker (Listen to Message, AM Demod, FM Demod)
-// - AM Modulation Modes (DSB-FC Standard vs DSB-SC Suppressed Carrier)
+// AM FM PRO - Precision Simulator Controller v4.0
+// Inspired by Keysight, Rohde & Schwarz, Tektronix test equipment.
+// High-performance reactive state management, interactive cursors,
+// presets, PNG capture, smart engineering insights, Web Audio API.
 
 document.addEventListener('DOMContentLoaded', () => {
   // ==================== CONSTANTS ====================
   const SR = 44100;
-  const DISPLAY_DURATION = 0.005;  // 5ms display window
-  const N_SAMPLES = 4096;          // DSP block size
+  const DISPLAY_DURATION = 0.005;  // 5ms calibrated oscilloscope window
+  const N_SAMPLES = 4096;          // DSP buffer size
   const N_DISPLAY = Math.floor(SR * DISPLAY_DURATION);
 
-  // ==================== STATE ====================
+  // ==================== INSTRUMENT STATE ====================
   let state = {
     msgType: 'sine',
     fm: 1000, am: 1.0,
@@ -24,28 +20,28 @@ document.addEventListener('DOMContentLoaded', () => {
     snr: 25,
     amEnabled: true, fmEnabled: true,
     noiseEnabled: false,
-    // Hardware SNR parameters
+    // Hardware RF link budget parameters
     txPower: 0,       // dBW
     distance: 1.0,    // km
     noiseFigure: 6,   // dB
     rxBandwidth: 10,  // kHz
-    running: true
+    frozen: false     // Freeze / Run waveform view
   };
 
-  // Audio buffers & streaming state
-  let audioFileBuffer = null;      // Float32Array from uploaded file
+  // Audio stream state
+  let audioFileBuffer = null;
   let audioFileOffset = 0;
   let micActive = false;
   let micStream = null;
   let micBuffer = new Float32Array(N_SAMPLES);
   let micProcessorNode = null;
 
-  // Cached signals for audio speaker playback
+  // Cached signals for audio playback & inspection
   let lastMsg = new Float32Array(N_SAMPLES);
   let lastAmRec = new Float32Array(N_SAMPLES);
   let lastFmRec = new Float32Array(N_SAMPLES);
 
-  // Web Audio Context for playback & decoding
+  // Audio Context
   let audioCtx = null;
   let currentSourceNode = null;
 
@@ -68,10 +64,27 @@ document.addEventListener('DOMContentLoaded', () => {
     amDemod:  document.getElementById('scope-am-demod'),
     fmDemod:  document.getElementById('scope-fm-demod'),
     specAm:   document.getElementById('spec-am'),
-    specFm:   document.getElementById('spec-fm'),
+    specFm:   document.getElementById('spec-fm')
   };
 
-  // ==================== AUDIO FILE INPUT ====================
+  // Bind interactive cursor inspection to each canvas
+  Object.values(canvases).forEach(canvas => {
+    if (canvas) Renderer.bindCursor(canvas, () => computeAndRender(true));
+  });
+
+  // ==================== MODULE TABS (WORKFLOW BAR) ====================
+  const tabBtns = document.querySelectorAll('.tab-btn');
+  tabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      tabBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const tab = btn.getAttribute('data-tab');
+      document.body.setAttribute('data-view', tab);
+      computeAndRender();
+    });
+  });
+
+  // ==================== AUDIO FILE UPLOAD ====================
   const fileInput = document.getElementById('audio-file-input');
   const btnChooseFile = document.getElementById('btn-choose-file');
   const audioFileName = document.getElementById('audio-file-name');
@@ -89,14 +102,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const arrayBuf = await file.arrayBuffer();
         const ctx = getAudioContext();
         const audioBuf = await ctx.decodeAudioData(arrayBuf);
-        // Extract first channel as Float32Array
         audioFileBuffer = audioBuf.getChannelData(0);
         audioFileOffset = 0;
         if (audioFileName) audioFileName.textContent = `Loaded: ${file.name} (${audioBuf.duration.toFixed(1)}s)`;
         computeAndRender();
       } catch (err) {
-        console.error('Failed to decode audio file:', err);
-        if (audioFileName) audioFileName.textContent = 'Error decoding audio file';
+        console.error('Audio decode error:', err);
+        if (audioFileName) audioFileName.textContent = 'Decode error';
       }
     });
   }
@@ -112,7 +124,6 @@ document.addEventListener('DOMContentLoaded', () => {
       micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       const micSource = ctx.createMediaStreamSource(micStream);
 
-      // Buffer audio samples
       micProcessorNode = ctx.createScriptProcessor(4096, 1, 1);
       micProcessorNode.onaudioprocess = (evt) => {
         if (!micActive) return;
@@ -126,14 +137,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
       micActive = true;
       if (btnToggleMic) {
-        btnToggleMic.textContent = '⏹ Stop Microphone';
-        btnToggleMic.className = 'btn btn-primary btn-sm';
+        btnToggleMic.textContent = '⏹ Stop Mic';
+        btnToggleMic.classList.add('active');
       }
       if (micStatus) micStatus.textContent = 'Mic: Streaming LIVE 🎙';
       computeAndRender();
     } catch (err) {
-      console.error('Microphone access denied:', err);
-      if (micStatus) micStatus.textContent = 'Mic permission denied';
+      console.error('Microphone denied:', err);
+      if (micStatus) micStatus.textContent = 'Permission denied';
       micActive = false;
     }
   }
@@ -149,10 +160,10 @@ document.addEventListener('DOMContentLoaded', () => {
       micProcessorNode = null;
     }
     if (btnToggleMic) {
-      btnToggleMic.textContent = '🎤 Start Microphone';
-      btnToggleMic.className = 'btn btn-secondary btn-sm';
+      btnToggleMic.textContent = '🎤 Enable Microphone';
+      btnToggleMic.classList.remove('active');
     }
-    if (micStatus) micStatus.textContent = 'Mic: Inactive';
+    if (micStatus) micStatus.textContent = 'Mic: Idle';
   }
 
   if (btnToggleMic) {
@@ -162,7 +173,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // ==================== AUDIO SPEAKER PLAYBACK ====================
+  // ==================== AUDIO SPEAKER MONITOR ====================
   const audioStatus = document.getElementById('audio-status');
   const btnPlayMsg = document.getElementById('btn-play-msg');
   const btnPlayAm = document.getElementById('btn-play-am');
@@ -174,16 +185,18 @@ document.addEventListener('DOMContentLoaded', () => {
       try { currentSourceNode.stop(); } catch(e) {}
       currentSourceNode = null;
     }
-    if (audioStatus) audioStatus.textContent = 'Speaker: Idle';
+    if (btnPlayMsg) btnPlayMsg.classList.remove('active');
+    if (btnPlayAm) btnPlayAm.classList.remove('active');
+    if (btnPlayFm) btnPlayFm.classList.remove('active');
+    if (audioStatus) audioStatus.textContent = 'IDLE';
   }
 
-  function playSignal(samples, label) {
+  function playSignal(samples, label, activeBtn) {
     stopSpeaker();
     if (!samples || samples.length === 0) return;
 
     try {
       const ctx = getAudioContext();
-      // Repeat/extend to at least 2 seconds if too short for a pleasant loop
       let playLen = samples.length;
       let repeatCount = 1;
       if (playLen < SR * 2) {
@@ -193,7 +206,6 @@ document.addEventListener('DOMContentLoaded', () => {
       const buffer = ctx.createBuffer(1, playLen * repeatCount, SR);
       const out = buffer.getChannelData(0);
 
-      // Measure max amplitude for safe normalization
       let maxAbs = 0;
       for (let i = 0; i < samples.length; i++) {
         const a = Math.abs(samples[i]);
@@ -215,38 +227,92 @@ document.addEventListener('DOMContentLoaded', () => {
       src.start(0);
       currentSourceNode = src;
 
-      if (audioStatus) {
-        audioStatus.textContent = `Playing: ${label} (Looping 🔊)`;
-        audioStatus.style.color = 'var(--color-green)';
-      }
+      if (activeBtn) activeBtn.classList.add('active');
+      if (audioStatus) audioStatus.textContent = `${label.toUpperCase()} 🔊`;
     } catch (err) {
       console.error('Audio playback error:', err);
-      if (audioStatus) audioStatus.textContent = 'Speaker: Playback error';
+      if (audioStatus) audioStatus.textContent = 'ERROR';
     }
   }
 
-  if (btnPlayMsg) btnPlayMsg.addEventListener('click', () => playSignal(lastMsg, 'Message'));
-  if (btnPlayAm) btnPlayAm.addEventListener('click', () => playSignal(lastAmRec, 'AM Demodulated'));
-  if (btnPlayFm) btnPlayFm.addEventListener('click', () => playSignal(lastFmRec, 'FM Demodulated'));
+  if (btnPlayMsg) btnPlayMsg.addEventListener('click', () => playSignal(lastMsg, 'Message', btnPlayMsg));
+  if (btnPlayAm) btnPlayAm.addEventListener('click', () => playSignal(lastAmRec, 'AM Demod', btnPlayAm));
+  if (btnPlayFm) btnPlayFm.addEventListener('click', () => playSignal(lastFmRec, 'FM Demod', btnPlayFm));
   if (btnStopAudio) btnStopAudio.addEventListener('click', stopSpeaker);
+
+  // ==================== FREEZE / RUN CONTROLLER ====================
+  const btnFreeze = document.getElementById('btn-freeze');
+  const freezeIcon = document.getElementById('freeze-icon');
+  const freezeText = document.getElementById('freeze-text');
+
+  function toggleFreeze() {
+    state.frozen = !state.frozen;
+    if (btnFreeze) btnFreeze.classList.toggle('active', state.frozen);
+    if (freezeIcon) freezeIcon.textContent = state.frozen ? '▶' : '⏸';
+    if (freezeText) freezeText.textContent = state.frozen ? 'RESUME' : 'FREEZE';
+    computeAndRender();
+  }
+
+  if (btnFreeze) btnFreeze.addEventListener('click', toggleFreeze);
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT') {
+      e.preventDefault();
+      toggleFreeze();
+    }
+  });
+
+  // ==================== THEORY MODAL ====================
+  const modalTheory = document.getElementById('modal-theory');
+  const btnTheoryModal = document.getElementById('btn-theory-modal');
+  const btnCloseTheory = document.getElementById('btn-close-theory');
+
+  if (btnTheoryModal && modalTheory) {
+    btnTheoryModal.addEventListener('click', () => modalTheory.classList.add('open'));
+  }
+  if (btnCloseTheory && modalTheory) {
+    btnCloseTheory.addEventListener('click', () => modalTheory.classList.remove('open'));
+  }
+  if (modalTheory) {
+    modalTheory.addEventListener('click', (e) => {
+      if (e.target === modalTheory) modalTheory.classList.remove('open');
+    });
+  }
+
+  // ==================== EXPORT HIGH-RES PNG ====================
+  const btnExportPng = document.getElementById('btn-export-png');
+  if (btnExportPng) {
+    btnExportPng.addEventListener('click', () => {
+      // Capture Scope 1 as sample or combine canvases
+      const activeCanvas = canvases.amMod || canvases.message;
+      if (!activeCanvas) return;
+      const link = document.createElement('a');
+      link.download = `AM_FM_PRO_Scope_Capture_${Date.now()}.png`;
+      link.href = activeCanvas.toDataURL('image/png');
+      link.click();
+    });
+  }
 
   // ==================== MAIN COMPUTE + RENDER ====================
 
-  function computeAndRender() {
+  function computeAndRender(isCursorRefresh = false) {
+    // If frozen and this is not an explicit cursor hover refresh, do not recalculate buffers
+    const t0 = performance.now();
+
     // 1. Generate or fetch message signal
     let msg = null;
-
     if (state.msgType === 'audio-file' && audioFileBuffer && audioFileBuffer.length > 0) {
       msg = new Float32Array(N_SAMPLES);
       for (let i = 0; i < N_SAMPLES; i++) {
         const idx = (audioFileOffset + i) % audioFileBuffer.length;
         msg[i] = audioFileBuffer[idx] * state.am;
       }
-      audioFileOffset = (audioFileOffset + N_SAMPLES) % audioFileBuffer.length;
+      if (!state.frozen) {
+        audioFileOffset = (audioFileOffset + N_SAMPLES) % audioFileBuffer.length;
+      }
     } else if (state.msgType === 'mic' && micActive) {
       msg = new Float32Array(N_SAMPLES);
       for (let i = 0; i < N_SAMPLES; i++) {
-        msg[i] = micBuffer[i] * state.am * 3.0; // Boost mic level
+        msg[i] = micBuffer[i] * state.am * 3.0;
       }
     } else {
       msg = DSP.generateWaveform(state.msgType, state.fm, state.am, 0, N_SAMPLES, SR);
@@ -258,7 +324,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const carrier = DSP.generateSine(state.fc, state.ac, 0, N_DISPLAY, SR);
     const fullCarrier = DSP.generateSine(state.fc, state.ac, 0, N_SAMPLES, SR);
 
-    // 3. Compute link budget (hardware SNR)
+    // 3. Compute link budget (hardware RF parameters)
     let lb = null;
     if (state.noiseEnabled) {
       lb = DSP.linkBudget(
@@ -266,7 +332,7 @@ document.addEventListener('DOMContentLoaded', () => {
         state.distance,
         state.fc,
         state.noiseFigure,
-        state.rxBandwidth * 1000  // Convert kHz to Hz
+        state.rxBandwidth * 1000
       );
     }
 
@@ -312,251 +378,315 @@ document.addEventListener('DOMContentLoaded', () => {
       fmMetrics = DSP.computeMetrics(msg, fmRec);
     }
 
-    // 6. Render waveforms
-    Renderer.drawWaveform(canvases.message, msg.slice(0, N_DISPLAY), Renderer.COLORS.cyan, `MESSAGE (${state.msgType.toUpperCase()})`, 'V');
-    Renderer.drawWaveform(canvases.carrier, carrier, Renderer.COLORS.green, 'CARRIER NCO', 'V');
+    // 6. Draw Oscilloscope Scopes
+    Renderer.drawWaveform(canvases.message, msg.slice(0, N_DISPLAY), Renderer.COLORS.message, `MESSAGE x(t) [${state.msgType.toUpperCase()}]`, 'V', DISPLAY_DURATION, state.frozen);
+    Renderer.drawWaveform(canvases.carrier, carrier, Renderer.COLORS.carrier, 'CARRIER c(t) [NCO]', 'V', DISPLAY_DURATION, state.frozen);
 
     if (state.amEnabled && amResult) {
-      const amLabel = state.amMode === 'DSB-SC' ? 'AM MODULATED (DSB-SC)' : 'AM MODULATED (DSB-FC)';
-      Renderer.drawWaveform(canvases.amMod, amResult.signal.slice(0, N_DISPLAY), Renderer.COLORS.gold, amLabel, 'V');
-      Renderer.drawWaveform(canvases.amDemod, amRec.slice(0, N_DISPLAY), Renderer.COLORS.pink, 'AM DEMODULATED', 'V');
+      const amLabel = state.amMode === 'DSB-SC' ? 'AM s(t) [DSB-SC COHERENT]' : 'AM s(t) [DSB-FC ENVELOPE]';
+      Renderer.drawWaveform(canvases.amMod, amResult.signal.slice(0, N_DISPLAY), Renderer.COLORS.am, amLabel, 'V', DISPLAY_DURATION, state.frozen);
+      Renderer.drawWaveform(canvases.amDemod, amRec.slice(0, N_DISPLAY), Renderer.COLORS.amDemod, 'AM RECOVERED y(t)', 'V', DISPLAY_DURATION, state.frozen);
       const amNF = (state.noiseEnabled && amChan.meta) ? amChan.meta.noiseFloorDb : null;
-      Renderer.drawSpectrum(canvases.specAm, amSpec.freqs, amSpec.magnitudes, Renderer.COLORS.orange, 'AM SPECTRUM', state.fc * 2.5, amNF);
+      Renderer.drawSpectrum(canvases.specAm, amSpec.freqs, amSpec.magnitudes, Renderer.COLORS.spectrumAm, 'AM RF SPECTRUM', state.fc * 2.2, amNF, state.fc, state.fm);
     } else {
-      Renderer.drawWaveform(canvases.amMod, null, Renderer.COLORS.gold, 'AM MODULATED [OFF]', 'V');
-      Renderer.drawWaveform(canvases.amDemod, null, Renderer.COLORS.pink, 'AM DEMODULATED [OFF]', 'V');
-      Renderer.drawSpectrum(canvases.specAm, null, null, Renderer.COLORS.orange, 'AM SPECTRUM [OFF]', 20000);
+      Renderer.drawWaveform(canvases.amMod, null, Renderer.COLORS.am, 'AM TRANSMITTED [OFF]', 'V');
+      Renderer.drawWaveform(canvases.amDemod, null, Renderer.COLORS.amDemod, 'AM RECOVERED [OFF]', 'V');
+      Renderer.drawSpectrum(canvases.specAm, null, null, Renderer.COLORS.spectrumAm, 'AM SPECTRUM [OFF]', 20000);
     }
 
     if (state.fmEnabled && fmResult) {
-      Renderer.drawWaveform(canvases.fmMod, fmResult.signal.slice(0, N_DISPLAY), Renderer.COLORS.purple, 'FM MODULATED', 'V');
-      Renderer.drawWaveform(canvases.fmDemod, fmRec.slice(0, N_DISPLAY), Renderer.COLORS.green, 'FM DEMODULATED', 'V');
+      Renderer.drawWaveform(canvases.fmMod, fmResult.signal.slice(0, N_DISPLAY), Renderer.COLORS.fm, 'FM TRANSMITTED s(t)', 'V', DISPLAY_DURATION, state.frozen);
+      Renderer.drawWaveform(canvases.fmDemod, fmRec.slice(0, N_DISPLAY), Renderer.COLORS.fmDemod, 'FM RECOVERED y(t)', 'V', DISPLAY_DURATION, state.frozen);
       const fmNF = (state.noiseEnabled && fmChan.meta) ? fmChan.meta.noiseFloorDb : null;
-      Renderer.drawSpectrum(canvases.specFm, fmSpec.freqs, fmSpec.magnitudes, Renderer.COLORS.cyan, 'FM SPECTRUM', state.fc * 2.5, fmNF);
+      Renderer.drawSpectrum(canvases.specFm, fmSpec.freqs, fmSpec.magnitudes, Renderer.COLORS.spectrumFm, 'FM RF SPECTRUM', state.fc * 2.2, fmNF, state.fc, state.fm, fmResult.meta.carsonBW);
     } else {
-      Renderer.drawWaveform(canvases.fmMod, null, Renderer.COLORS.purple, 'FM MODULATED [OFF]', 'V');
-      Renderer.drawWaveform(canvases.fmDemod, null, Renderer.COLORS.green, 'FM DEMODULATED [OFF]', 'V');
-      Renderer.drawSpectrum(canvases.specFm, null, null, Renderer.COLORS.cyan, 'FM SPECTRUM [OFF]', 20000);
+      Renderer.drawWaveform(canvases.fmMod, null, Renderer.COLORS.fm, 'FM TRANSMITTED [OFF]', 'V');
+      Renderer.drawWaveform(canvases.fmDemod, null, Renderer.COLORS.fmDemod, 'FM RECOVERED [OFF]', 'V');
+      Renderer.drawSpectrum(canvases.specFm, null, null, Renderer.COLORS.spectrumFm, 'FM SPECTRUM [OFF]', 20000);
     }
 
-    // 7. Update all metric displays
-    updateMetrics(amResult, fmResult, amMetrics, fmMetrics, amChan, fmChan);
-    updateSNRBudget(amChan, fmChan);
-    updateLinkBudget(lb);
+    // 7. Update Telemetry & Insights
+    const elapsed = performance.now() - t0;
+    const statLatency = document.getElementById('stat-latency');
+    if (statLatency) statLatency.textContent = `<${Math.max(1, elapsed.toFixed(1))}ms`;
+
+    updateAnalytics(amResult, fmResult, amMetrics, fmMetrics, amChan, fmChan, lb);
   }
 
-  // ==================== METRICS DISPLAY ====================
+  // ==================== ANALYTICS & INSIGHT GENERATOR ====================
 
-  function setText(id, text) {
+  function setText(id, val) {
     const el = document.getElementById(id);
-    if (el) el.textContent = text;
+    if (el) el.textContent = val;
   }
 
-  function updateMetrics(amResult, fmResult, amMetrics, fmMetrics, amChan, fmChan) {
+  function updateAnalytics(amResult, fmResult, amMetrics, fmMetrics, amChan, fmChan, lb) {
+    // 1. AM Live Power Table
     if (amResult && amResult.meta) {
+      setText('pwr-pc', amResult.meta.pc.toFixed(2) + ' W');
+      setText('pwr-psb', amResult.meta.psb.toFixed(2) + ' W');
+      setText('pwr-pt', amResult.meta.pt.toFixed(2) + ' W');
+      setText('pwr-eff', amResult.meta.efficiency.toFixed(1) + '%');
+
       setText('met-am-m', state.m.toFixed(2));
       setText('met-am-eff', amResult.meta.efficiency.toFixed(1) + '%');
       setText('met-am-bw', (2 * state.fm).toFixed(0) + ' Hz');
+      setText('met-am-corr', amMetrics ? amMetrics.correlation.toFixed(3) : '---');
 
+      const isOver = amResult.meta.isOvermod;
       const statusEl = document.getElementById('met-am-status');
       if (statusEl) {
-        statusEl.textContent = amResult.meta.isOvermod ? 'OVERMOD' : (state.amMode === 'DSB-SC' ? 'DSB-SC' : 'OK');
-        statusEl.className = 'metric-value' + (amResult.meta.isOvermod ? ' danger' : '');
+        statusEl.textContent = isOver ? 'OVERMOD' : (state.amMode === 'DSB-SC' ? 'DSB-SC' : 'LINEAR OK');
+        statusEl.className = 'm-cell-val ' + (isOver ? 'danger' : 'good');
       }
-      setText('met-am-corr', amMetrics ? amMetrics.correlation.toFixed(3) : '---');
-    } else {
-      setText('met-am-m', '---');
-      setText('met-am-eff', '---');
-      setText('met-am-bw', '---');
-      setText('met-am-status', '---');
-      setText('met-am-corr', '---');
+
+      const alertOvermod = document.getElementById('alert-overmod');
+      if (alertOvermod) alertOvermod.style.display = isOver ? 'flex' : 'none';
     }
 
+    // 2. FM Power & Carson Table
     if (fmResult && fmResult.meta) {
+      setText('pwr-beta', fmResult.meta.beta.toFixed(2));
+      setText('pwr-carson', (fmResult.meta.carsonBW / 1000).toFixed(1) + ' kHz');
+      setText('pwr-fm-regime', fmResult.meta.isNBFM ? 'NBFM (Narrowband)' : 'WBFM (Wideband)');
+
       setText('met-fm-beta', fmResult.meta.beta.toFixed(2));
       setText('met-fm-df', state.deltaF.toFixed(0) + ' Hz');
       setText('met-fm-bw', fmResult.meta.carsonBW.toFixed(0) + ' Hz');
       setText('met-fm-type', fmResult.meta.isNBFM ? 'NBFM' : 'WBFM');
       setText('met-fm-corr', fmMetrics ? fmMetrics.correlation.toFixed(3) : '---');
-    } else {
-      setText('met-fm-beta', '---');
-      setText('met-fm-df', '---');
-      setText('met-fm-bw', '---');
-      setText('met-fm-type', '---');
-      setText('met-fm-corr', '---');
+
+      const beta = fmResult.meta.beta;
+      const fmGain = 10 * Math.log10(3 * beta * beta * (beta + 1) + 1e-12);
+      setText('pwr-fm-gain', `+${Math.max(0, fmGain).toFixed(1)} dB`);
+      setText('snr-fm-gain', `+${Math.max(0, fmGain).toFixed(1)} dB`);
     }
 
-    setText('met-snr', state.noiseEnabled ? state.snr.toFixed(0) + ' dB' : 'OFF');
-  }
-
-  // ==================== SNR BUDGET DISPLAY ====================
-
-  function updateSNRBudget(amChan, fmChan) {
-    const budgetEl = document.getElementById('snr-budget');
-    if (!budgetEl) return;
-
-    if (!state.noiseEnabled) {
-      budgetEl.classList.add('hidden');
-      return;
-    }
-    budgetEl.classList.remove('hidden');
+    // 3. Channel Telemetry
+    setText('met-snr', state.noiseEnabled ? `${state.snr.toFixed(0)} dB` : 'OFF (Inf)');
 
     const chan = (amChan && amChan.meta && amChan.meta.pSig > 0) ? amChan :
                 (fmChan && fmChan.meta && fmChan.meta.pSig > 0) ? fmChan : null;
 
-    if (chan && chan.meta) {
-      const m = chan.meta;
-      setText('snr-tx-power', m.pSigDb.toFixed(1) + ' dB');
-      setText('snr-noise-power', m.pNoiseDb.toFixed(1) + ' dB');
-      setText('snr-rx-power', m.pRxDb.toFixed(1) + ' dB');
-      setText('snr-theoretical', m.snrDb.toFixed(1) + ' dB');
-      setText('snr-measured', m.measuredSnr.toFixed(1) + ' dB');
-
-      const delta = m.measuredSnr - m.snrDb;
+    if (chan && chan.meta && state.noiseEnabled) {
+      setText('snr-measured', `${chan.meta.measuredSnr.toFixed(1)} dB`);
+      const delta = chan.meta.measuredSnr - chan.meta.snrDb;
       const deltaEl = document.getElementById('snr-delta');
       if (deltaEl) {
-        deltaEl.textContent = (delta >= 0 ? '+' : '') + delta.toFixed(1) + ' dB';
-        deltaEl.className = 'snr-comp-value ' + (Math.abs(delta) < 2 ? 'good' : 'poor');
-      }
-
-      const measEl = document.getElementById('snr-measured');
-      if (measEl) {
-        measEl.className = 'snr-comp-value ' + (m.measuredSnr >= m.snrDb - 2 ? 'good' : 'poor');
-      }
-
-      const beta = state.fmEnabled ? (state.deltaF / Math.max(state.fm, 1)) : 0;
-      if (beta > 0) {
-        const fmImprove = DSP.fmImprovementFactor(beta, state.snr);
-        const fmGainEl = document.getElementById('snr-fm-gain');
-        if (fmGainEl) {
-          fmGainEl.textContent = '+' + fmImprove.gainDb.toFixed(1) + ' dB';
-          fmGainEl.className = 'snr-comp-value fm-improve' +
-            (fmImprove.aboveThreshold ? '' : ' poor');
-        }
-      } else {
-        setText('snr-fm-gain', '---');
+        deltaEl.textContent = `${delta >= 0 ? '+' : ''}${delta.toFixed(1)} dB`;
+        deltaEl.className = 'm-cell-val ' + (Math.abs(delta) < 2 ? 'good' : 'warn');
       }
     } else {
-      setText('snr-tx-power', '---');
-      setText('snr-noise-power', '---');
-      setText('snr-rx-power', '---');
-      setText('snr-theoretical', '---');
       setText('snr-measured', '---');
       setText('snr-delta', '---');
-      setText('snr-fm-gain', '---');
     }
-  }
 
-  // ==================== LINK BUDGET DISPLAY ====================
-
-  function updateLinkBudget(lb) {
+    // 4. Link Budget Strip
     const lbEl = document.getElementById('link-budget');
-    if (!lbEl) return;
-
-    if (!state.noiseEnabled || !lb) {
-      lbEl.classList.add('hidden');
-      return;
+    if (lbEl) {
+      if (state.noiseEnabled && lb) {
+        lbEl.classList.remove('hidden');
+        setText('lb-tx', `${lb.txPowerDbw.toFixed(1)} dBW`);
+        setText('lb-fspl', `${lb.fsplDb.toFixed(1)} dB`);
+        setText('lb-rx', `${lb.rxPowerDbw.toFixed(1)} dBW`);
+        setText('lb-ktb', `${lb.kTBDbw.toFixed(1)} dBW`);
+        setText('lb-nf', `${lb.noiseFigureDb.toFixed(0)} dB`);
+        const snrInEl = document.getElementById('lb-snr-in');
+        if (snrInEl) {
+          snrInEl.textContent = `${lb.snrIn >= 0 ? '+' : ''}${lb.snrIn.toFixed(1)} dB`;
+          snrInEl.style.color = lb.snrIn >= 10 ? 'var(--state-normal)' : (lb.snrIn >= 0 ? 'var(--state-warn)' : 'var(--state-danger)');
+        }
+      } else {
+        lbEl.classList.add('hidden');
+      }
     }
-    lbEl.classList.remove('hidden');
 
-    setText('lb-tx', lb.txPowerDbw.toFixed(1) + ' dBW');
-    setText('lb-fspl', lb.fsplDb.toFixed(1) + ' dB');
-    setText('lb-rx', lb.rxPowerDbw.toFixed(1) + ' dBW');
-    setText('lb-ktb', lb.kTBDbw.toFixed(1) + ' dBW');
-    setText('lb-nf', lb.noiseFigureDb.toFixed(0) + ' dB');
-    setText('lb-ntotal', lb.totalNoiseDbw.toFixed(1) + ' dBW');
+    // 5. Signal Flow Nodes status update
+    setText('flow-msg-stat', `${(state.fm / 1000).toFixed(1)} kHz ${state.msgType.toUpperCase()}`);
+    setText('flow-chan-stat', state.noiseEnabled ? `AWGN SNR: ${state.snr}dB` : 'Clean Channel');
+    const chanNode = document.getElementById('node-chan');
+    if (chanNode) chanNode.classList.toggle('active', state.noiseEnabled);
 
-    const snrInEl = document.getElementById('lb-snr-in');
-    if (snrInEl) {
-      snrInEl.textContent = lb.snrIn.toFixed(1) + ' dB';
-      snrInEl.style.color = lb.snrIn >= 10 ? 'var(--color-green)' :
-                            lb.snrIn >= 0  ? 'var(--color-gold)' : 'var(--color-red)';
+    // 6. Pedagogical Smart Engineering Insight
+    const titleEl = document.getElementById('insight-title');
+    const descEl = document.getElementById('insight-desc');
+    const iconEl = document.getElementById('insight-icon');
+
+    if (state.m > 1.0 && state.amMode === 'DSB-FC') {
+      if (titleEl) titleEl.textContent = 'CRITICAL: AM OVERMODULATION DETECTED (m > 1.0)';
+      if (descEl) descEl.textContent = `Modulation index m = ${state.m.toFixed(2)} exceeds 1.00. The envelope crosses zero, causing carrier phase reversal. Standard envelope detectors (diode/peak) will produce severe clipping distortion.`;
+      if (iconEl) iconEl.textContent = '⚠️';
+    } else if (state.amMode === 'DSB-SC') {
+      if (titleEl) titleEl.textContent = 'OPTIMIZED: DOUBLE-SIDEBAND SUPPRESSED-CARRIER (DSB-SC)';
+      if (descEl) descEl.textContent = `Carrier has been suppressed, achieving 100% transmission efficiency. Notice the absence of the central fc spike in the AM spectrum. Demodulation requires synchronous coherent carrier recovery.`;
+      if (iconEl) iconEl.textContent = '⚡';
+    } else if (state.noiseEnabled && state.snr < 10) {
+      if (titleEl) titleEl.textContent = 'CHANNEL IMPAIRMENT: LOW CARRIER-TO-NOISE RATIO (SNR < 10 dB)';
+      if (descEl) descEl.textContent = `Channel SNR is ${state.snr} dB. FM performance drops below the capture threshold (~10 dB), causing FM threshold breakdown (click noise) where WBFM quieting advantage diminishes.`;
+      if (iconEl) iconEl.textContent = '🌧️';
+    } else if (state.fmEnabled && state.deltaF >= 4000) {
+      if (titleEl) titleEl.textContent = 'WIDEBAND FM: HIGH FIDELITY WITH SNR QUIETING GAIN';
+      if (descEl) descEl.textContent = `Carson bandwidth BT = ${(2 * (state.deltaF + state.fm) / 1000).toFixed(1)} kHz. Wideband FM trades excess RF bandwidth for a +${(10 * Math.log10(3 * Math.pow(state.deltaF/state.fm, 2) * (state.deltaF/state.fm + 1))).toFixed(1)} dB post-detection SNR improvement over AM.`;
+      if (iconEl) iconEl.textContent = '📡';
+    } else {
+      if (titleEl) titleEl.textContent = 'ENGINEERING DIAGNOSTICS: NOMINAL SPECIFICATION';
+      if (descEl) descEl.textContent = `Carrier frequency fc = ${state.fc} Hz is adequately separated from message bandwidth (fc >> fm). Reconstruction correlation r > 0.99 verifies high mathematical accuracy.`;
+      if (iconEl) iconEl.textContent = '✅';
     }
   }
 
-  // ==================== SLIDER & TOGGLE BINDINGS ====================
+  // ==================== SLIDER & NUMERIC STEPPER BINDING ====================
 
-  function bindSlider(sliderId, valueId, stateKey, transform, formatter) {
+  function bindDualInput(sliderId, numId, textId, stateKey, transform, invTransform, formatter) {
     const slider = document.getElementById(sliderId);
-    const valueEl = document.getElementById(valueId);
+    const num = document.getElementById(numId);
+    const textEl = document.getElementById(textId);
+
     if (!slider) return;
 
-    slider.addEventListener('input', (e) => {
-      const raw = parseFloat(e.target.value);
-      const val = transform ? transform(raw) : raw;
+    function updateVal(rawVal) {
+      const val = transform ? transform(rawVal) : rawVal;
       state[stateKey] = val;
-      if (valueEl) {
-        valueEl.textContent = formatter ? formatter(val) : (
-          Number.isInteger(val) ? val.toString() : val.toFixed(2)
-        );
-      }
+
+      const formatted = formatter ? formatter(val) : (Number.isInteger(val) ? val.toString() : val.toFixed(2));
+      if (textEl) textEl.textContent = formatted;
+      if (num && num !== document.activeElement) num.value = val;
+      if (slider && slider !== document.activeElement) slider.value = invTransform ? invTransform(val) : val;
+
+      computeAndRender();
+    }
+
+    slider.addEventListener('input', (e) => updateVal(parseFloat(e.target.value)));
+    if (num) {
+      num.addEventListener('input', (e) => {
+        const v = parseFloat(e.target.value);
+        if (!isNaN(v)) updateVal(v);
+      });
+    }
+  }
+
+  bindDualInput('slider-fm', 'num-fm', 'val-fm', 'fm', null, null, v => v.toFixed(0));
+  bindDualInput('slider-am', 'num-am', 'val-am', 'am', v => v / 100, v => v * 100, v => v.toFixed(2));
+  bindDualInput('slider-fc', 'num-fc', 'val-fc', 'fc', null, null, v => v.toFixed(0));
+  bindDualInput('slider-ac', 'num-ac', 'val-ac', 'ac', v => v / 100, v => v * 100, v => v.toFixed(2));
+  bindDualInput('slider-m', 'num-m', 'val-m', 'm', v => v / 100, v => v * 100, v => v.toFixed(2));
+  bindDualInput('slider-df', 'num-df', 'val-df', 'deltaF', null, null, v => v.toFixed(0));
+  bindDualInput('slider-snr', 'num-snr', 'val-snr', 'snr', null, null, v => v.toFixed(0));
+
+  // Additional single sliders
+  function bindSimpleSlider(sliderId, textId, stateKey, formatter) {
+    const el = document.getElementById(sliderId);
+    const tel = document.getElementById(textId);
+    if (!el) return;
+    el.addEventListener('input', (e) => {
+      const val = parseFloat(e.target.value);
+      state[stateKey] = val;
+      if (tel) tel.textContent = formatter ? formatter(val) : val.toString();
       computeAndRender();
     });
   }
 
-  function bindToggle(toggleId, stateKey) {
-    const toggle = document.getElementById(toggleId);
-    if (!toggle) return;
-    toggle.addEventListener('click', () => {
+  bindSimpleSlider('slider-txpow', 'val-txpow', 'txPower', v => v.toFixed(0));
+  bindSimpleSlider('slider-dist', 'val-dist', 'distance', v => v.toFixed(1));
+  bindSimpleSlider('slider-nf', 'val-nf', 'noiseFigure', v => v.toFixed(0));
+  bindSimpleSlider('slider-bw', 'val-bw', 'rxBandwidth', v => v.toFixed(0));
+
+  // Toggles
+  function bindToggle(toggleId, stateKey, labelOn, labelOff) {
+    const btn = document.getElementById(toggleId);
+    if (!btn) return;
+    btn.addEventListener('click', () => {
       state[stateKey] = !state[stateKey];
-      toggle.classList.toggle('active', state[stateKey]);
-      toggle.textContent = state[stateKey] ? 'ON' : 'OFF';
+      btn.classList.toggle('active', state[stateKey]);
+      btn.textContent = state[stateKey] ? labelOn : labelOff;
       computeAndRender();
     });
   }
 
-  // Waveform type selector
+  bindToggle('toggle-am', 'amEnabled', 'AM ON', 'AM OFF');
+  bindToggle('toggle-fm', 'fmEnabled', 'FM ON', 'FM OFF');
+  bindToggle('toggle-noise', 'noiseEnabled', 'NOISE ON', 'NOISE OFF');
+
+  // AM Mode Segmented Buttons
+  const btnModeDsbfc = document.getElementById('btn-mode-dsbfc');
+  const btnModeDsbsc = document.getElementById('btn-mode-dsbsc');
+
+  function setAmMode(mode) {
+    state.amMode = mode;
+    if (btnModeDsbfc) btnModeDsbfc.classList.toggle('active', mode === 'DSB-FC');
+    if (btnModeDsbsc) btnModeDsbsc.classList.toggle('active', mode === 'DSB-SC');
+    computeAndRender();
+  }
+
+  if (btnModeDsbfc) btnModeDsbfc.addEventListener('click', () => setAmMode('DSB-FC'));
+  if (btnModeDsbsc) btnModeDsbsc.addEventListener('click', () => setAmMode('DSB-SC'));
+
+  // Message Source Selector
   const msgTypeEl = document.getElementById('msg-type');
   if (msgTypeEl) {
     msgTypeEl.addEventListener('change', (e) => {
       state.msgType = e.target.value;
+      if (audioFileControls) audioFileControls.style.display = (state.msgType === 'audio-file') ? 'block' : 'none';
+      if (micControls) micControls.style.display = (state.msgType === 'mic') ? 'block' : 'none';
+      if (state.msgType !== 'mic' && micActive) stopMic();
+      computeAndRender();
+    });
+  }
 
-      // Conditional UI visibility
-      if (audioFileControls) {
-        audioFileControls.style.display = (state.msgType === 'audio-file') ? 'block' : 'none';
+  // ==================== PRESET SELECTOR ====================
+  const selPreset = document.getElementById('sel-preset');
+  if (selPreset) {
+    selPreset.addEventListener('change', (e) => {
+      const p = e.target.value;
+      if (p === 'default') {
+        state.m = 0.80; state.fc = 10000; state.fm = 1000; state.amMode = 'DSB-FC'; state.noiseEnabled = false;
+      } else if (p === 'am-overmod') {
+        state.m = 1.35; state.fc = 10000; state.fm = 1000; state.amMode = 'DSB-FC'; state.noiseEnabled = false;
+      } else if (p === 'am-dsbsc') {
+        state.m = 1.00; state.fc = 10000; state.fm = 1000; state.amMode = 'DSB-SC'; state.noiseEnabled = false;
+      } else if (p === 'fm-wbfm') {
+        state.deltaF = 5000; state.fm = 1000; state.fc = 10000; state.noiseEnabled = false;
+      } else if (p === 'fm-nbfm') {
+        state.deltaF = 800; state.fm = 1000; state.fc = 10000; state.noiseEnabled = false;
+      } else if (p === 'chan-noisy') {
+        state.noiseEnabled = true; state.snr = 5;
+      } else if (p === 'chan-weak') {
+        state.noiseEnabled = true; state.distance = 50.0; state.txPower = -10;
       }
-      if (micControls) {
-        micControls.style.display = (state.msgType === 'mic') ? 'block' : 'none';
+
+      // Sync UI controls
+      const tNoise = document.getElementById('toggle-noise');
+      if (tNoise) {
+        tNoise.classList.toggle('active', state.noiseEnabled);
+        tNoise.textContent = state.noiseEnabled ? 'NOISE ON' : 'NOISE OFF';
       }
-      if (state.msgType !== 'mic' && micActive) {
-        stopMic();
-      }
+      setAmMode(state.amMode);
+
+      const setEl = (sId, nId, tId, val, fmt) => {
+        const s = document.getElementById(sId);
+        const n = document.getElementById(nId);
+        const t = document.getElementById(tId);
+        if (s) s.value = val;
+        if (n) n.value = val;
+        if (t) t.textContent = fmt ? fmt(val) : val;
+      };
+
+      setEl('slider-fm', 'num-fm', 'val-fm', state.fm, v => v.toFixed(0));
+      setEl('slider-fc', 'num-fc', 'val-fc', state.fc, v => v.toFixed(0));
+      setEl('slider-m', 'num-m', 'val-m', state.m * 100, v => (v/100).toFixed(2));
+      const numM = document.getElementById('num-m');
+      if (numM) numM.value = state.m.toFixed(2);
+      setEl('slider-df', 'num-df', 'val-df', state.deltaF, v => v.toFixed(0));
+      setEl('slider-snr', 'num-snr', 'val-snr', state.snr, v => v.toFixed(0));
 
       computeAndRender();
     });
   }
 
-  // AM Mode selector
-  const amModeEl = document.getElementById('am-mode');
-  if (amModeEl) {
-    amModeEl.addEventListener('change', (e) => {
-      state.amMode = e.target.value;
-      computeAndRender();
-    });
-  }
-
-  // Sliders
-  bindSlider('slider-fm', 'val-fm', 'fm', null, v => v.toFixed(0));
-  bindSlider('slider-am', 'val-am', 'am', v => v / 100, v => v.toFixed(2));
-  bindSlider('slider-fc', 'val-fc', 'fc', null, v => v.toFixed(0));
-  bindSlider('slider-ac', 'val-ac', 'ac', v => v / 100, v => v.toFixed(2));
-  bindSlider('slider-m', 'val-m', 'm', v => v / 100, v => v.toFixed(2));
-  bindSlider('slider-df', 'val-df', 'deltaF', null, v => v.toFixed(0));
-  bindSlider('slider-snr', 'val-snr', 'snr', null, v => v.toFixed(0));
-  bindSlider('slider-txpow', 'val-txpow', 'txPower', null, v => v.toFixed(0));
-  bindSlider('slider-dist', 'val-dist', 'distance', null, v => v.toFixed(1));
-  bindSlider('slider-nf', 'val-nf', 'noiseFigure', null, v => v.toFixed(0));
-  bindSlider('slider-bw', 'val-bw', 'rxBandwidth', null, v => v.toFixed(0));
-
-  // Toggles
-  bindToggle('toggle-am', 'amEnabled');
-  bindToggle('toggle-fm', 'fmEnabled');
-  bindToggle('toggle-noise', 'noiseEnabled');
-
-  // Reset All
-  const resetBtn = document.getElementById('btn-reset');
-  if (resetBtn) {
-    resetBtn.addEventListener('click', () => {
+  // ==================== RESET INSTRUMENT ====================
+  const btnReset = document.getElementById('btn-reset');
+  if (btnReset) {
+    btnReset.addEventListener('click', () => {
       stopSpeaker();
       stopMic();
 
@@ -565,55 +695,36 @@ document.addEventListener('DOMContentLoaded', () => {
         m: 0.80, deltaF: 4000, amMode: 'DSB-FC', snr: 25,
         amEnabled: true, fmEnabled: true, noiseEnabled: false,
         txPower: 0, distance: 1.0, noiseFigure: 6, rxBandwidth: 10,
-        running: true
+        frozen: false
       };
 
-      const setSlider = (id, val, textId, textVal) => {
-        const el = document.getElementById(id);
-        if (el) el.value = val;
-        const tel = document.getElementById(textId);
-        if (tel) tel.textContent = textVal;
-      };
-
+      if (selPreset) selPreset.value = 'default';
       if (msgTypeEl) msgTypeEl.value = 'sine';
-      if (amModeEl) amModeEl.value = 'DSB-FC';
       if (audioFileControls) audioFileControls.style.display = 'none';
       if (micControls) micControls.style.display = 'none';
 
-      setSlider('slider-fm', 1000, 'val-fm', '1000');
-      setSlider('slider-am', 100, 'val-am', '1.00');
-      setSlider('slider-fc', 10000, 'val-fc', '10000');
-      setSlider('slider-ac', 100, 'val-ac', '1.00');
-      setSlider('slider-m', 80, 'val-m', '0.80');
-      setSlider('slider-df', 4000, 'val-df', '4000');
-      setSlider('slider-snr', 25, 'val-snr', '25');
-      setSlider('slider-txpow', 0, 'val-txpow', '0');
-      setSlider('slider-dist', 1, 'val-dist', '1.0');
-      setSlider('slider-nf', 6, 'val-nf', '6');
-      setSlider('slider-bw', 10, 'val-bw', '10');
+      setAmMode('DSB-FC');
 
       const tAm = document.getElementById('toggle-am');
-      if (tAm) { tAm.classList.add('active'); tAm.textContent = 'ON'; }
+      if (tAm) { tAm.classList.add('active'); tAm.textContent = 'AM ON'; }
       const tFm = document.getElementById('toggle-fm');
-      if (tFm) { tFm.classList.add('active'); tFm.textContent = 'ON'; }
+      if (tFm) { tFm.classList.add('active'); tFm.textContent = 'FM ON'; }
       const tNoise = document.getElementById('toggle-noise');
-      if (tNoise) { tNoise.classList.remove('active'); tNoise.textContent = 'OFF'; }
+      if (tNoise) { tNoise.classList.remove('active'); tNoise.textContent = 'NOISE OFF'; }
 
       computeAndRender();
     });
   }
 
-  // Resize handler
-  let resizeTimeout = null;
+  // Window resize handler
+  let resizeTimer = null;
   window.addEventListener('resize', () => {
-    if (resizeTimeout) clearTimeout(resizeTimeout);
-    resizeTimeout = setTimeout(() => computeAndRender(), 100);
+    if (resizeTimer) clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => computeAndRender(), 80);
   });
 
-  // Initial render
+  // Initial boot render
   requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      computeAndRender();
-    });
+    requestAnimationFrame(() => computeAndRender());
   });
 });

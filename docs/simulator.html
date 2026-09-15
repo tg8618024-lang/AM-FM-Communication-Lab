@@ -3,301 +3,623 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AM FM PRO | Interactive Simulator</title>
+  <title>AM/FM PRO | RF & DSP Laboratory Workstation</title>
   <link rel="stylesheet" href="style.css">
 </head>
-<body>
-  <!-- Top Navigation Bar -->
-  <nav class="sim-nav">
-    <a href="index.html" class="nav-logo">AM FM PRO</a>
-    <span class="nav-title">Interactive Simulator</span>
-    <a href="https://github.com/tg8618024-lang/AM-FM-Communication-Lab" target="_blank" class="btn btn-secondary btn-sm">GitHub</a>
+<body data-view="all">
+
+  <!-- ==================== 1. TOP INSTRUMENT HEADER ==================== -->
+  <header class="inst-header">
+    <div class="inst-branding">
+      <span class="inst-logo-badge">RF/DSP</span>
+      <div class="inst-title-block">
+        <h1>AM/FM PRO <span style="font-weight:400; color:var(--text-dim); font-size:12px;">| Precision Signal Lab</span></h1>
+        <div class="inst-subtitle">Virtual Communication Engineering Workstation</div>
+      </div>
+    </div>
+
+    <!-- Active Hardware & Engine Telemetry -->
+    <div class="inst-telemetry">
+      <div class="telem-item">
+        <span class="pulse-dot" id="led-status"></span>
+        <span class="telem-label">Engine:</span>
+        <span class="telem-val" id="stat-engine">LIVE 60FPS</span>
+      </div>
+      <div class="telem-item">
+        <span class="telem-label">Fs:</span>
+        <span class="telem-val">44.1 kHz</span>
+      </div>
+      <div class="telem-item">
+        <span class="telem-label">Block:</span>
+        <span class="telem-val">4096 pts</span>
+      </div>
+      <div class="telem-item">
+        <span class="telem-label">Latency:</span>
+        <span class="telem-val" id="stat-latency">&lt;2.1ms</span>
+      </div>
+    </div>
+
+    <!-- Toolbar Action Buttons -->
+    <div class="inst-actions">
+      <button type="button" id="btn-freeze" class="btn-tool" title="Freeze waveform rendering (spacebar)">
+        <span id="freeze-icon">⏸</span> <span id="freeze-text">FREEZE</span>
+      </button>
+      <button type="button" id="btn-export-png" class="btn-tool" title="Capture high-resolution oscilloscope plot">
+        📸 EXPORT PNG
+      </button>
+      <button type="button" id="btn-theory-modal" class="btn-tool" title="Open RF communication theory & formulas reference">
+        📖 THEORY
+      </button>
+      <button type="button" id="btn-reset" class="btn-tool" style="color:var(--state-danger);" title="Reset all instrument dials to factory calibration">
+        🔄 RESET
+      </button>
+      <a href="index.html" class="btn-tool" style="text-decoration:none;">
+        🏠 HOME
+      </a>
+    </div>
+  </header>
+
+  <!-- ==================== 2. WORKFLOW MODULE BAR ==================== -->
+  <nav class="inst-workflow-bar">
+    <div class="workflow-tabs">
+      <button type="button" class="tab-btn active tab-all" data-tab="all">⚡ All-In-One Laboratory</button>
+      <button type="button" class="tab-btn tab-am" data-tab="am">📻 AM Workstation</button>
+      <button type="button" class="tab-btn tab-fm" data-tab="fm">📡 FM Workstation</button>
+      <button type="button" class="tab-btn" data-tab="channel">🌐 RF Channel &amp; Link Budget</button>
+      <button type="button" class="tab-btn" data-tab="audio">🔊 Audio Monitor &amp; Demod</button>
+    </div>
+
+    <!-- Instrument Presets Selector -->
+    <div class="quick-presets-group">
+      <span style="color:var(--text-dim);">PRESET:</span>
+      <select id="sel-preset" class="preset-select">
+        <option value="default">Standard AM (m = 0.80, fc = 10kHz)</option>
+        <option value="am-overmod">⚠️ AM Overmodulation (m = 1.35)</option>
+        <option value="am-dsbsc">⚡ AM DSB-SC (100% Efficiency)</option>
+        <option value="fm-wbfm">📡 Broadcast FM (WBFM, β = 5.0)</option>
+        <option value="fm-nbfm">📻 Narrowband FM (NBFM, β = 0.8)</option>
+        <option value="chan-noisy">🌧️ Severe Noise Channel (SNR = 5 dB)</option>
+        <option value="chan-weak">📡 Weak Long Distance Link (50 km)</option>
+      </select>
+    </div>
   </nav>
 
-  <div class="sim-layout">
-    <!-- LEFT: Control Panel -->
-    <aside class="sim-controls">
+  <!-- ==================== 3. APP SHELL LAYOUT ==================== -->
+  <div class="inst-shell">
 
-      <!-- Message Controls -->
-      <div class="control-card">
-        <h3 class="control-title">Message Signal</h3>
-        <div class="slider-group">
-          <label>Waveform Source</label>
-          <select id="msg-type">
-            <option value="sine">Sine Wave</option>
-            <option value="square">Square Wave</option>
+    <!-- LEFT SIDEBAR: STRUCTURED PARAMETER RACK -->
+    <aside class="inst-rack">
+
+      <!-- GROUP A: MESSAGE SIGNAL -->
+      <section class="param-card">
+        <div class="param-card-header">
+          <div class="card-title-badge badge-msg">
+            <span>●</span> <span>Message Source x(t)</span>
+          </div>
+          <span class="ctrl-limits">10Hz - 5kHz</span>
+        </div>
+
+        <div class="ctrl-row">
+          <label class="ctrl-title" for="msg-type">Waveform Function</label>
+          <select id="msg-type" class="inst-select">
+            <option value="sine">Sine Wave (Pure Tone)</option>
+            <option value="square">Square Wave (Harmonics)</option>
             <option value="triangle">Triangle Wave</option>
-            <option value="sawtooth">Sawtooth Wave</option>
+            <option value="sawtooth">Sawtooth Ramp</option>
             <option value="audio-file">📁 Audio File (WAV/MP3)</option>
             <option value="mic">🎤 Live Microphone</option>
           </select>
         </div>
 
-        <!-- Audio File Upload UI (shown when audio-file selected) -->
-        <div id="audio-file-controls" style="display:none; margin: 0.5rem 0;">
+        <!-- Audio File Upload UI -->
+        <div id="audio-file-controls" style="display:none; margin: 6px 0; padding: 6px; background:var(--bg-input); border-radius:var(--radius-sm);">
           <input type="file" id="audio-file-input" accept="audio/*" style="display:none;">
-          <button type="button" id="btn-choose-file" class="btn btn-secondary btn-sm" style="width:100%; font-size:0.75rem;">📁 Choose Audio File</button>
-          <span id="audio-file-name" style="font-size:0.7rem; color:var(--color-cyan); display:block; margin-top:0.25rem; word-break:break-all;"></span>
+          <button type="button" id="btn-choose-file" class="btn-tool" style="width:100%; justify-content:center;">📁 Browse Audio File</button>
+          <span id="audio-file-name" style="font-size:10px; color:var(--sig-message); display:block; margin-top:4px; word-break:break-all;"></span>
         </div>
 
-        <!-- Live Microphone UI (shown when mic selected) -->
-        <div id="mic-controls" style="display:none; margin: 0.5rem 0;">
-          <button type="button" id="btn-toggle-mic" class="btn btn-secondary btn-sm" style="width:100%; font-size:0.75rem;">🎤 Start Microphone</button>
-          <span id="mic-status" style="font-size:0.7rem; color:var(--color-muted); display:block; margin-top:0.25rem;">Mic: Inactive</span>
+        <!-- Live Microphone UI -->
+        <div id="mic-controls" style="display:none; margin: 6px 0; padding: 6px; background:var(--bg-input); border-radius:var(--radius-sm);">
+          <button type="button" id="btn-toggle-mic" class="btn-tool" style="width:100%; justify-content:center;">🎤 Enable Microphone</button>
+          <span id="mic-status" style="font-size:10px; color:var(--text-dim); display:block; margin-top:4px; text-align:center;">Mic: Idle</span>
         </div>
 
-        <div class="slider-group">
-          <label>Frequency <span id="val-fm">1000</span> Hz</label>
-          <input type="range" id="slider-fm" min="100" max="5000" value="1000" step="100">
+        <!-- Frequency fm -->
+        <div class="ctrl-row">
+          <div class="ctrl-label-line">
+            <span class="ctrl-title">Frequency (fm)</span>
+            <span class="ctrl-readout"><span id="val-fm">1000</span> <span class="ctrl-unit">Hz</span></span>
+          </div>
+          <div class="range-container">
+            <input type="range" id="slider-fm" class="inst-slider" min="100" max="5000" value="1000" step="50">
+            <input type="number" id="num-fm" class="inst-numbox" min="100" max="5000" value="1000" step="50">
+          </div>
         </div>
-        <div class="slider-group">
-          <label>Amplitude <span id="val-am">1.00</span> V</label>
-          <input type="range" id="slider-am" min="10" max="200" value="100" step="5">
-        </div>
-      </div>
 
-      <!-- Carrier Controls -->
-      <div class="control-card">
-        <h3 class="control-title">Carrier</h3>
-        <div class="slider-group">
-          <label>Frequency <span id="val-fc">10000</span> Hz</label>
-          <input type="range" id="slider-fc" min="2000" max="18000" value="10000" step="500">
+        <!-- Amplitude Am -->
+        <div class="ctrl-row">
+          <div class="ctrl-label-line">
+            <span class="ctrl-title">Amplitude (Am)</span>
+            <span class="ctrl-readout"><span id="val-am">1.00</span> <span class="ctrl-unit">V</span></span>
+          </div>
+          <div class="range-container">
+            <input type="range" id="slider-am" class="inst-slider" min="10" max="200" value="100" step="5">
+            <input type="number" id="num-am" class="inst-numbox" min="0.10" max="2.00" value="1.00" step="0.05">
+          </div>
         </div>
-        <div class="slider-group">
-          <label>Amplitude <span id="val-ac">1.00</span> V</label>
-          <input type="range" id="slider-ac" min="10" max="200" value="100" step="5">
-        </div>
-      </div>
+      </section>
 
-      <!-- AM Controls -->
-      <div class="control-card">
-        <h3 class="control-title">AM Modulation</h3>
-        <div class="toggle-row">
-          <span>Enable</span>
-          <button id="toggle-am" class="toggle-btn active">ON</button>
+      <!-- GROUP B: CARRIER NCO -->
+      <section class="param-card">
+        <div class="param-card-header">
+          <div class="card-title-badge badge-car">
+            <span>●</span> <span>Carrier Oscillator c(t)</span>
+          </div>
+          <span class="ctrl-limits">2kHz - 18kHz</span>
         </div>
-        <div class="slider-group">
-          <label>Mode</label>
-          <select id="am-mode">
-            <option value="DSB-FC">DSB-FC (Standard AM)</option>
-            <option value="DSB-SC">DSB-SC (Suppressed Carrier)</option>
+
+        <!-- Frequency fc -->
+        <div class="ctrl-row">
+          <div class="ctrl-label-line">
+            <span class="ctrl-title">Carrier Frequency (fc)</span>
+            <span class="ctrl-readout"><span id="val-fc">10000</span> <span class="ctrl-unit">Hz</span></span>
+          </div>
+          <div class="range-container">
+            <input type="range" id="slider-fc" class="inst-slider" min="2000" max="18000" value="10000" step="250">
+            <input type="number" id="num-fc" class="inst-numbox" min="2000" max="18000" value="10000" step="250">
+          </div>
+        </div>
+
+        <!-- Amplitude Ac -->
+        <div class="ctrl-row">
+          <div class="ctrl-label-line">
+            <span class="ctrl-title">Carrier Amplitude (Ac)</span>
+            <span class="ctrl-readout"><span id="val-ac">1.00</span> <span class="ctrl-unit">V</span></span>
+          </div>
+          <div class="range-container">
+            <input type="range" id="slider-ac" class="inst-slider" min="10" max="200" value="100" step="5">
+            <input type="number" id="num-ac" class="inst-numbox" min="0.10" max="2.00" value="1.00" step="0.05">
+          </div>
+        </div>
+      </section>
+
+      <!-- GROUP C: AM MODULATION -->
+      <section class="param-card mode-am-only-card">
+        <div class="param-card-header">
+          <div class="card-title-badge badge-am">
+            <span>●</span> <span>AM Modulator</span>
+          </div>
+          <button type="button" id="toggle-am" class="btn-tool active" style="padding:2px 8px; font-size:10px;">AM ON</button>
+        </div>
+
+        <div class="ctrl-row">
+          <label class="ctrl-title" for="am-mode">Carrier Mode</label>
+          <div class="seg-switch">
+            <button type="button" class="seg-btn active" data-mode="DSB-FC" id="btn-mode-dsbfc">DSB-FC (Standard)</button>
+            <button type="button" class="seg-btn" data-mode="DSB-SC" id="btn-mode-dsbsc">DSB-SC (Suppressed)</button>
+          </div>
+          <select id="am-mode" style="display:none;">
+            <option value="DSB-FC" selected>DSB-FC</option>
+            <option value="DSB-SC">DSB-SC</option>
           </select>
         </div>
-        <div class="slider-group">
-          <label>Mod Index m = <span id="val-m">0.80</span></label>
-          <input type="range" id="slider-m" min="5" max="200" value="80" step="5">
-        </div>
-      </div>
 
-      <!-- FM Controls -->
-      <div class="control-card">
-        <h3 class="control-title">FM Modulation</h3>
-        <div class="toggle-row">
-          <span>Enable</span>
-          <button id="toggle-fm" class="toggle-btn active">ON</button>
+        <!-- Modulation Index m -->
+        <div class="ctrl-row">
+          <div class="ctrl-label-line">
+            <span class="ctrl-title">Modulation Index (m)</span>
+            <span class="ctrl-readout"><span id="val-m">0.80</span></span>
+          </div>
+          <div class="range-container">
+            <input type="range" id="slider-m" class="inst-slider" min="5" max="200" value="80" step="5">
+            <input type="number" id="num-m" class="inst-numbox" min="0.05" max="2.00" value="0.80" step="0.05">
+          </div>
         </div>
-        <div class="slider-group">
-          <label>Deviation <span id="val-df">4000</span> Hz</label>
-          <input type="range" id="slider-df" min="500" max="10000" value="4000" step="250">
-        </div>
-      </div>
 
-      <!-- Channel / Hardware SNR Controls -->
-      <div class="control-card">
-        <h3 class="control-title">Channel / Hardware SNR</h3>
-        <div class="toggle-row">
-          <span>AWGN Noise</span>
-          <button id="toggle-noise" class="toggle-btn">OFF</button>
+        <!-- Overmodulation Alert Banner -->
+        <div id="alert-overmod" class="alert-banner" style="display:none;">
+          <span>⚠️</span>
+          <span>OVERMODULATION (m &gt; 1.0): Zero-crossing envelope distortion occurs.</span>
         </div>
-        <div class="slider-group">
-          <label>SNR <span id="val-snr">25</span> dB</label>
-          <input type="range" id="slider-snr" min="-5" max="50" value="25" step="1">
-        </div>
-        <div class="slider-group">
-          <label>Tx Power <span id="val-txpow">0</span> dBW</label>
-          <input type="range" id="slider-txpow" min="-20" max="30" value="0" step="1">
-        </div>
-        <div class="slider-group">
-          <label>Distance <span id="val-dist">1.0</span> km</label>
-          <input type="range" id="slider-dist" min="1" max="100" value="1" step="1">
-        </div>
-        <div class="slider-group">
-          <label>Rx Noise Figure <span id="val-nf">6</span> dB</label>
-          <input type="range" id="slider-nf" min="1" max="15" value="6" step="1">
-        </div>
-        <div class="slider-group">
-          <label>Bandwidth <span id="val-bw">10</span> kHz</label>
-          <input type="range" id="slider-bw" min="1" max="100" value="10" step="1">
-        </div>
-      </div>
 
-      <!-- Audio Speaker Monitor -->
-      <div class="control-card">
-        <h3 class="control-title">🔊 Audio Monitor (Speaker)</h3>
-        <div style="display:flex; flex-direction:column; gap:0.35rem;">
-          <button type="button" id="btn-play-msg" class="btn btn-secondary btn-sm" style="font-size:0.75rem; text-align:left;">▶ Play Message</button>
-          <button type="button" id="btn-play-am" class="btn btn-secondary btn-sm" style="font-size:0.75rem; text-align:left;">▶ Play AM Demod</button>
-          <button type="button" id="btn-play-fm" class="btn btn-secondary btn-sm" style="font-size:0.75rem; text-align:left;">▶ Play FM Demod</button>
-          <button type="button" id="btn-stop-audio" class="btn btn-primary btn-sm" style="font-size:0.75rem; margin-top:0.2rem;">⏹ Stop Audio</button>
-        </div>
-        <span id="audio-status" style="font-size:0.68rem; color:var(--color-muted); display:block; margin-top:0.35rem;">Speaker: Idle</span>
-      </div>
+        <!-- Live Power Distribution Table -->
+        <table class="power-table">
+          <tbody>
+            <tr><td class="p-label">Carrier Power (Pc):</td><td class="p-val" id="pwr-pc">0.50 W</td></tr>
+            <tr><td class="p-label">Sideband Power (Psb):</td><td class="p-val" id="pwr-psb">0.16 W</td></tr>
+            <tr><td class="p-label">Total Power (Pt):</td><td class="p-val" id="pwr-pt">0.66 W</td></tr>
+            <tr><td class="p-label">Power Efficiency (η):</td><td class="p-val" id="pwr-eff" style="color:var(--sig-carrier);">24.2%</td></tr>
+          </tbody>
+        </table>
+      </section>
 
-      <!-- Action Buttons -->
-      <div class="control-card">
-        <button id="btn-reset" class="btn btn-secondary" style="width:100%">RESET ALL</button>
-      </div>
+      <!-- GROUP D: FM MODULATION -->
+      <section class="param-card mode-fm-only-card">
+        <div class="param-card-header">
+          <div class="card-title-badge badge-fm">
+            <span>●</span> <span>FM Modulator</span>
+          </div>
+          <button type="button" id="toggle-fm" class="btn-tool active" style="padding:2px 8px; font-size:10px;">FM ON</button>
+        </div>
+
+        <!-- Frequency Deviation delta_f -->
+        <div class="ctrl-row">
+          <div class="ctrl-label-line">
+            <span class="ctrl-title">Peak Frequency Deviation (Δf)</span>
+            <span class="ctrl-readout"><span id="val-df">4000</span> <span class="ctrl-unit">Hz</span></span>
+          </div>
+          <div class="range-container">
+            <input type="range" id="slider-df" class="inst-slider" min="200" max="10000" value="4000" step="100">
+            <input type="number" id="num-df" class="inst-numbox" min="200" max="10000" value="4000" step="100">
+          </div>
+        </div>
+
+        <table class="power-table">
+          <tbody>
+            <tr><td class="p-label">Modulation Index (β):</td><td class="p-val" id="pwr-beta">4.00</td></tr>
+            <tr><td class="p-label">Bandwidth (Carson):</td><td class="p-val" id="pwr-carson" style="color:var(--sig-fm);">10.0 kHz</td></tr>
+            <tr><td class="p-label">FM Regime:</td><td class="p-val" id="pwr-fm-regime">WBFM</td></tr>
+            <tr><td class="p-label">FM Improvement Gain:</td><td class="p-val" id="pwr-fm-gain" style="color:var(--state-normal);">+19.8 dB</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- GROUP E: CHANNEL & LINK BUDGET -->
+      <section class="param-card">
+        <div class="param-card-header">
+          <div class="card-title-badge badge-chan">
+            <span>●</span> <span>RF Channel &amp; AWGN Noise</span>
+          </div>
+          <button type="button" id="toggle-noise" class="btn-tool" style="padding:2px 8px; font-size:10px;">NOISE OFF</button>
+        </div>
+
+        <!-- Channel SNR -->
+        <div class="ctrl-row">
+          <div class="ctrl-label-line">
+            <span class="ctrl-title">Channel SNR</span>
+            <span class="ctrl-readout"><span id="val-snr">25</span> <span class="ctrl-unit">dB</span></span>
+          </div>
+          <div class="range-container">
+            <input type="range" id="slider-snr" class="inst-slider" min="-5" max="50" value="25" step="1">
+            <input type="number" id="num-snr" class="inst-numbox" min="-5" max="50" value="25" step="1">
+          </div>
+        </div>
+
+        <!-- Hardware Link Budget Sub-parameters -->
+        <div class="ctrl-row">
+          <div class="ctrl-label-line">
+            <span class="ctrl-title">Tx Power</span>
+            <span class="ctrl-readout"><span id="val-txpow">0</span> <span class="ctrl-unit">dBW</span></span>
+          </div>
+          <input type="range" id="slider-txpow" class="inst-slider" min="-20" max="30" value="0" step="1">
+        </div>
+
+        <div class="ctrl-row">
+          <div class="ctrl-label-line">
+            <span class="ctrl-title">Path Distance</span>
+            <span class="ctrl-readout"><span id="val-dist">1.0</span> <span class="ctrl-unit">km</span></span>
+          </div>
+          <input type="range" id="slider-dist" class="inst-slider" min="1" max="100" value="1" step="1">
+        </div>
+
+        <div class="ctrl-row">
+          <div class="ctrl-label-line">
+            <span class="ctrl-title">Rx Noise Figure (NF)</span>
+            <span class="ctrl-readout"><span id="val-nf">6</span> <span class="ctrl-unit">dB</span></span>
+          </div>
+          <input type="range" id="slider-nf" class="inst-slider" min="1" max="15" value="6" step="1">
+        </div>
+
+        <div class="ctrl-row">
+          <div class="ctrl-label-line">
+            <span class="ctrl-title">Rx Bandwidth (B)</span>
+            <span class="ctrl-readout"><span id="val-bw">10</span> <span class="ctrl-unit">kHz</span></span>
+          </div>
+          <input type="range" id="slider-bw" class="inst-slider" min="1" max="100" value="10" step="1">
+        </div>
+      </section>
+
+      <!-- GROUP F: AUDIO MONITOR SPEAKER -->
+      <section class="param-card">
+        <div class="param-card-header">
+          <div class="card-title-badge badge-audio">
+            <span>🔊</span> <span>Acoustic Monitor (Speaker)</span>
+          </div>
+          <span id="audio-status" style="font-size:9px; font-family:var(--font-mono); color:var(--text-dim);">IDLE</span>
+        </div>
+
+        <div class="audio-dock-grid">
+          <button type="button" id="btn-play-msg" class="btn-audio">▶ Message Tone</button>
+          <button type="button" id="btn-play-am" class="btn-audio">▶ AM Demod</button>
+          <button type="button" id="btn-play-fm" class="btn-audio">▶ FM Demod</button>
+          <button type="button" id="btn-stop-audio" class="btn-audio btn-stop">⏹ Mute Speaker</button>
+        </div>
+      </section>
 
     </aside>
 
-    <!-- RIGHT: Display Area -->
-    <main class="sim-display">
+    <!-- CENTER INSTRUMENT WORKSTATION AREA -->
+    <main class="inst-workstation">
 
-      <!-- Waveform Scopes (6 scopes, 2x3 grid) -->
-      <div class="scope-grid">
-        <div class="scope-container">
-          <canvas id="scope-msg"></canvas>
-        </div>
-        <div class="scope-container">
-          <canvas id="scope-carrier"></canvas>
-        </div>
-        <div class="scope-container">
-          <canvas id="scope-am"></canvas>
-        </div>
-        <div class="scope-container">
-          <canvas id="scope-fm"></canvas>
-        </div>
-        <div class="scope-container">
-          <canvas id="scope-am-demod"></canvas>
-        </div>
-        <div class="scope-container">
-          <canvas id="scope-fm-demod"></canvas>
+      <!-- Smart Engineering Insight Card -->
+      <div class="smart-insight-card" id="card-insight">
+        <div class="insight-icon" id="insight-icon">ℹ️</div>
+        <div class="insight-content">
+          <h4 id="insight-title">ENGINEERING INSIGHT &amp; DIAGNOSTICS</h4>
+          <p id="insight-desc">System operating under standard conditions. Modulation index m = 0.80 yields linear DSB-FC modulation without envelope reversal.</p>
         </div>
       </div>
 
-      <!-- Spectrum Displays (2 canvases) -->
-      <div class="scope-grid spectrum-grid">
-        <div class="scope-container">
-          <canvas id="spec-am"></canvas>
+      <!-- Signal Flow Interactive Diagram -->
+      <div class="signal-flow-strip">
+        <div class="flow-node active" id="node-msg">
+          <span class="flow-node-title">x(t) Source</span>
+          <span class="flow-node-status" id="flow-msg-stat">1.0 kHz Sine</span>
         </div>
-        <div class="scope-container">
-          <canvas id="spec-fm"></canvas>
+        <span class="flow-arrow-sep">➔</span>
+        <div class="flow-node active" id="node-mod">
+          <span class="flow-node-title">Modulator</span>
+          <span class="flow-node-status" id="flow-mod-stat">AM + FM Active</span>
         </div>
-      </div>
-
-      <!-- Link Budget Chain (Hardware) -->
-      <div id="link-budget" class="link-budget-bar hidden">
-        <span class="link-budget-title">Link Budget</span>
-        <div class="snr-chain">
-          <div class="link-stage">
-            <span class="link-stage-label">Tx Power</span>
-            <span class="link-stage-value" id="lb-tx">0 dBW</span>
-          </div>
-          <span class="link-arrow">&rarr;</span>
-          <div class="link-stage">
-            <span class="link-stage-label">FSPL</span>
-            <span class="link-stage-value" id="lb-fspl">0 dB</span>
-          </div>
-          <span class="link-arrow">&rarr;</span>
-          <div class="link-stage">
-            <span class="link-stage-label">Rx Power</span>
-            <span class="link-stage-value" id="lb-rx">0 dBW</span>
-          </div>
-          <span class="link-arrow">&rarr;</span>
-          <div class="link-stage">
-            <span class="link-stage-label">kTB</span>
-            <span class="link-stage-value" id="lb-ktb">0 dBW</span>
-          </div>
-          <span class="link-arrow">&rarr;</span>
-          <div class="link-stage">
-            <span class="link-stage-label">NF</span>
-            <span class="link-stage-value" id="lb-nf">6 dB</span>
-          </div>
-          <span class="link-arrow">&rarr;</span>
-          <div class="link-stage">
-            <span class="link-stage-label">N total</span>
-            <span class="link-stage-value" id="lb-ntotal">0 dBW</span>
-          </div>
-          <span class="link-arrow">&rarr;</span>
-          <div class="link-stage" style="border-color: var(--color-gold);">
-            <span class="link-stage-label">SNR_in</span>
-            <span class="link-stage-value" id="lb-snr-in" style="color: var(--color-gold);">0 dB</span>
-          </div>
+        <span class="flow-arrow-sep">➔</span>
+        <div class="flow-node" id="node-chan">
+          <span class="flow-node-title">RF Channel</span>
+          <span class="flow-node-status" id="flow-chan-stat">Clean Channel</span>
+        </div>
+        <span class="flow-arrow-sep">➔</span>
+        <div class="flow-node active" id="node-demod">
+          <span class="flow-node-title">Demodulator</span>
+          <span class="flow-node-status" id="flow-demod-stat">Hilbert Detector</span>
+        </div>
+        <span class="flow-arrow-sep">➔</span>
+        <div class="flow-node active" id="node-sink">
+          <span class="flow-node-title">Sink / Audio</span>
+          <span class="flow-node-status">Corr: 0.998</span>
         </div>
       </div>
 
-      <!-- SNR Power Budget Bar -->
-      <div id="snr-budget" class="snr-budget-bar hidden">
-        <span class="snr-budget-title">SNR Analysis</span>
-        <div class="snr-chain">
-          <div class="snr-stage">
-            <span class="snr-stage-label">Sig Power</span>
-            <span class="snr-stage-value" id="snr-tx-power">---</span>
-          </div>
-          <span class="snr-arrow">&rarr;</span>
-          <div class="snr-stage">
-            <span class="snr-stage-label">Noise Pwr</span>
-            <span class="snr-stage-value" id="snr-noise-power">---</span>
-          </div>
-          <span class="snr-arrow">&rarr;</span>
-          <div class="snr-stage">
-            <span class="snr-stage-label">Rx Power</span>
-            <span class="snr-stage-value" id="snr-rx-power">---</span>
-          </div>
-        </div>
-        <div class="snr-comparison">
-          <div class="snr-comp-item">
-            <span class="snr-comp-label">Set:</span>
-            <span class="snr-comp-value" id="snr-theoretical">---</span>
-          </div>
-          <div class="snr-comp-item">
-            <span class="snr-comp-label">Meas:</span>
-            <span class="snr-comp-value" id="snr-measured">---</span>
-          </div>
-          <div class="snr-comp-item">
-            <span class="snr-comp-label">&Delta;:</span>
-            <span class="snr-comp-value" id="snr-delta">---</span>
-          </div>
-          <div class="snr-comp-item">
-            <span class="snr-comp-label">FM Gain:</span>
-            <span class="snr-comp-value fm-improve" id="snr-fm-gain">---</span>
-          </div>
+      <!-- Link Budget Chain Strip (shown when noise active) -->
+      <div class="link-budget-strip hidden" id="link-budget">
+        <span class="lb-title">Link Budget Chain:</span>
+        <div class="lb-chain">
+          <div class="lb-pill"><span class="l-name">Tx Power</span><span class="l-val" id="lb-tx">0.0 dBW</span></div>
+          <span style="color:var(--text-dim);">➔</span>
+          <div class="lb-pill"><span class="l-name">Path Loss</span><span class="l-val" id="lb-fspl">112.4 dB</span></div>
+          <span style="color:var(--text-dim);">➔</span>
+          <div class="lb-pill"><span class="l-name">Rx Power</span><span class="l-val" id="lb-rx">-112.4 dBW</span></div>
+          <span style="color:var(--text-dim);">➔</span>
+          <div class="lb-pill"><span class="l-name">Thermal kTB</span><span class="l-val" id="lb-ktb">-164.0 dBW</span></div>
+          <span style="color:var(--text-dim);">➔</span>
+          <div class="lb-pill"><span class="l-name">Rx NF</span><span class="l-val" id="lb-nf">6 dB</span></div>
+          <span style="color:var(--text-dim);">➔</span>
+          <div class="lb-pill"><span class="l-name">Input SNR</span><span class="l-val" id="lb-snr-in" style="color:var(--state-normal);">+45.6 dB</span></div>
         </div>
       </div>
 
-      <!-- Metrics Bar -->
-      <div class="metrics-bar">
-        <div class="metrics-section">
-          <h4>AM</h4>
-          <div class="metric-row">
-            <div class="metric-item"><span class="metric-label">m</span><span class="metric-value" id="met-am-m">0.80</span></div>
-            <div class="metric-item"><span class="metric-label">Eff</span><span class="metric-value" id="met-am-eff">24.2%</span></div>
-            <div class="metric-item"><span class="metric-label">BW</span><span class="metric-value" id="met-am-bw">2000 Hz</span></div>
-            <div class="metric-item"><span class="metric-label">Status</span><span class="metric-value" id="met-am-status">OK</span></div>
-            <div class="metric-item"><span class="metric-label">Corr</span><span class="metric-value" id="met-am-corr">---</span></div>
+      <!-- OSCILLOSCOPE BEZELS (2 cols x 3 rows in All-in-One, or dedicated single-mode) -->
+      <div class="scope-viewport-grid" id="scope-grid">
+
+        <!-- Scope 1: Message Signal -->
+        <div class="scope-bezel">
+          <div class="bezel-topbar">
+            <div class="bezel-title" style="color:var(--sig-message);">
+              <span>●</span> <span>MESSAGE SIGNAL x(t)</span>
+            </div>
+            <span class="bezel-scale-tag" id="tag-msg-scale">0.5ms/div | 0.5V/div</span>
+          </div>
+          <div class="bezel-canvas-wrap">
+            <canvas id="scope-msg"></canvas>
           </div>
         </div>
-        <div class="metrics-section">
-          <h4>FM</h4>
-          <div class="metric-row">
-            <div class="metric-item"><span class="metric-label">Beta</span><span class="metric-value" id="met-fm-beta">4.00</span></div>
-            <div class="metric-item"><span class="metric-label">&#916;f</span><span class="metric-value" id="met-fm-df">4000 Hz</span></div>
-            <div class="metric-item"><span class="metric-label">Carson</span><span class="metric-value" id="met-fm-bw">10000 Hz</span></div>
-            <div class="metric-item"><span class="metric-label">Type</span><span class="metric-value" id="met-fm-type">WBFM</span></div>
-            <div class="metric-item"><span class="metric-label">Corr</span><span class="metric-value" id="met-fm-corr">---</span></div>
+
+        <!-- Scope 2: Carrier NCO -->
+        <div class="scope-bezel">
+          <div class="bezel-topbar">
+            <div class="bezel-title" style="color:var(--sig-carrier);">
+              <span>●</span> <span>CARRIER OSCILLATOR c(t)</span>
+            </div>
+            <span class="bezel-scale-tag">0.5ms/div | 0.5V/div</span>
+          </div>
+          <div class="bezel-canvas-wrap">
+            <canvas id="scope-carrier"></canvas>
           </div>
         </div>
-        <div class="metrics-section">
-          <h4>Channel</h4>
-          <div class="metric-row">
-            <div class="metric-item"><span class="metric-label">SNR</span><span class="metric-value" id="met-snr">OFF</span></div>
+
+        <!-- Scope 3: AM Modulated -->
+        <div class="scope-bezel mode-am-only">
+          <div class="bezel-topbar">
+            <div class="bezel-title" style="color:var(--sig-am);">
+              <span>●</span> <span id="label-scope-am">AM TRANSMITTED s_AM(t)</span>
+            </div>
+            <span class="bezel-scale-tag" id="tag-am-scale">0.5ms/div | 1.0V/div</span>
+          </div>
+          <div class="bezel-canvas-wrap">
+            <canvas id="scope-am"></canvas>
           </div>
         </div>
+
+        <!-- Scope 4: AM Demodulated Baseband -->
+        <div class="scope-bezel mode-am-only">
+          <div class="bezel-topbar">
+            <div class="bezel-title" style="color:var(--sig-am-demod);">
+              <span>●</span> <span>AM RECOVERED OUTPUT y_AM(t)</span>
+            </div>
+            <span class="bezel-scale-tag">0.5ms/div | 0.5V/div</span>
+          </div>
+          <div class="bezel-canvas-wrap">
+            <canvas id="scope-am-demod"></canvas>
+          </div>
+        </div>
+
+        <!-- Scope 5: FM Modulated -->
+        <div class="scope-bezel mode-fm-only">
+          <div class="bezel-topbar">
+            <div class="bezel-title" style="color:var(--sig-fm);">
+              <span>●</span> <span>FM TRANSMITTED s_FM(t)</span>
+            </div>
+            <span class="bezel-scale-tag">0.5ms/div | 1.0V/div</span>
+          </div>
+          <div class="bezel-canvas-wrap">
+            <canvas id="scope-fm"></canvas>
+          </div>
+        </div>
+
+        <!-- Scope 6: FM Demodulated Baseband -->
+        <div class="scope-bezel mode-fm-only">
+          <div class="bezel-topbar">
+            <div class="bezel-title" style="color:var(--sig-fm-demod);">
+              <span>●</span> <span>FM RECOVERED OUTPUT y_FM(t)</span>
+            </div>
+            <span class="bezel-scale-tag">0.5ms/div | 0.5V/div</span>
+          </div>
+          <div class="bezel-canvas-wrap">
+            <canvas id="scope-fm-demod"></canvas>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- SPECTRUM ANALYZER VIEWPORT ROW -->
+      <div class="spectrum-viewport-row">
+
+        <!-- AM Spectrum -->
+        <div class="scope-bezel spectrum-bezel mode-am-only">
+          <div class="bezel-topbar">
+            <div class="bezel-title" style="color:var(--sig-am);">
+              <span>📊</span> <span>AM RF POWER SPECTRUM</span>
+            </div>
+            <span class="bezel-scale-tag">10 dB/div | 2.5 kHz/div</span>
+          </div>
+          <div class="bezel-canvas-wrap">
+            <canvas id="spec-am"></canvas>
+          </div>
+        </div>
+
+        <!-- FM Spectrum -->
+        <div class="scope-bezel spectrum-bezel mode-fm-only">
+          <div class="bezel-topbar">
+            <div class="bezel-title" style="color:var(--sig-fm);">
+              <span>📊</span> <span>FM RF POWER SPECTRUM</span>
+            </div>
+            <span class="bezel-scale-tag">10 dB/div | 2.5 kHz/div</span>
+          </div>
+          <div class="bezel-canvas-wrap">
+            <canvas id="spec-fm"></canvas>
+          </div>
+        </div>
+
       </div>
 
     </main>
   </div>
 
+  <!-- ==================== 4. FOOTER TELEMETRY BAR ==================== -->
+  <footer class="inst-metrics-footer">
+    <div class="metric-group">
+      <span class="metric-group-title m-am">AM METRICS</span>
+      <div class="m-cell">
+        <span class="m-cell-label">Index m</span>
+        <span class="m-cell-val" id="met-am-m">0.80</span>
+      </div>
+      <div class="m-cell">
+        <span class="m-cell-label">Efficiency</span>
+        <span class="m-cell-val good" id="met-am-eff">24.2%</span>
+      </div>
+      <div class="m-cell">
+        <span class="m-cell-label">Bandwidth</span>
+        <span class="m-cell-val" id="met-am-bw">2000 Hz</span>
+      </div>
+      <div class="m-cell">
+        <span class="m-cell-label">Recon Corr</span>
+        <span class="m-cell-val good" id="met-am-corr">0.998</span>
+      </div>
+      <div class="m-cell">
+        <span class="m-cell-label">Envelope</span>
+        <span class="m-cell-val good" id="met-am-status">LINEAR OK</span>
+      </div>
+    </div>
+
+    <div class="metric-group">
+      <span class="metric-group-title m-fm">FM METRICS</span>
+      <div class="m-cell">
+        <span class="m-cell-label">Beta β</span>
+        <span class="m-cell-val" id="met-fm-beta">4.00</span>
+      </div>
+      <div class="m-cell">
+        <span class="m-cell-label">Deviation Δf</span>
+        <span class="m-cell-val" id="met-fm-df">4000 Hz</span>
+      </div>
+      <div class="m-cell">
+        <span class="m-cell-label">Carson BW</span>
+        <span class="m-cell-val" id="met-fm-bw">10000 Hz</span>
+      </div>
+      <div class="m-cell">
+        <span class="m-cell-label">Regime</span>
+        <span class="m-cell-val" id="met-fm-type">WBFM</span>
+      </div>
+      <div class="m-cell">
+        <span class="m-cell-label">Recon Corr</span>
+        <span class="m-cell-val good" id="met-fm-corr">0.997</span>
+      </div>
+    </div>
+
+    <div class="metric-group">
+      <span class="metric-group-title m-rf">CHANNEL TELEMETRY</span>
+      <div class="m-cell">
+        <span class="m-cell-label">Channel SNR</span>
+        <span class="m-cell-val" id="met-snr">OFF (Inf)</span>
+      </div>
+      <div class="m-cell">
+        <span class="m-cell-label">Measured SNR</span>
+        <span class="m-cell-val" id="snr-measured">---</span>
+      </div>
+      <div class="m-cell">
+        <span class="m-cell-label">SNR Delta</span>
+        <span class="m-cell-val good" id="snr-delta">---</span>
+      </div>
+      <div class="m-cell">
+        <span class="m-cell-label">WBFM Gain</span>
+        <span class="m-cell-val good" id="snr-fm-gain">+19.8 dB</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ==================== 5. MODALS ==================== -->
+  <!-- Theory & ECE Viva Guide Modal -->
+  <div class="modal-overlay" id="modal-theory">
+    <div class="modal-panel">
+      <div class="modal-header">
+        <h3>📖 Communication Theory &amp; Formulas Quick Reference</h3>
+        <button type="button" class="modal-close-btn" id="btn-close-theory">✕</button>
+      </div>
+      <div class="modal-body">
+        <h4>1. Amplitude Modulation (AM DSB-FC)</h4>
+        <p>Double-Sideband Full-Carrier modulates the carrier amplitude linearly with the baseband message:</p>
+        <div class="formula-card">s_AM(t) = Ac · [1 + m · x(t)] · cos(2π fc t)</div>
+        <p>Power transmission efficiency η is governed by the modulation index m:</p>
+        <div class="formula-card">η = Psb / Pt = (m² / (2 + m²)) · 100%   (Max 33.3% at m = 1.0)</div>
+
+        <h4>2. Amplitude Modulation (DSB-SC)</h4>
+        <p>Suppresses the unmodulated carrier component entirely, yielding 100% power efficiency:</p>
+        <div class="formula-card">s_DSBSC(t) = Ac · m · x(t) · cos(2π fc t)   (η = 100.0%)</div>
+
+        <h4>3. Frequency Modulation (FM) &amp; Carson's Rule</h4>
+        <p>Frequency varies proportionally to the message. Instantaneous phase is the integral of frequency:</p>
+        <div class="formula-card">s_FM(t) = Ac · cos(2π fc t + 2π Δf ∫ x(τ) dτ),   β = Δf / fm</div>
+        <p>Carson's Rule defines the RF channel bandwidth containing ~98% of total transmitted power:</p>
+        <div class="formula-card">BT = 2 · (Δf + fm) = 2 · fm · (1 + β)</div>
+
+        <h4>4. FM Noise Improvement Factor</h4>
+        <p>Above the FM threshold (SNRin &gt; 10 dB), wideband FM provides significant SNR quieting over AM:</p>
+        <div class="formula-card">SNR_out / SNR_in = 3 · β² · (β + 1)</div>
+
+        <h4>5. Free-Space Path Loss (FSPL) &amp; Thermal Noise (kTB)</h4>
+        <div class="formula-card">FSPL(dB) = 20·log10(d) + 20·log10(f) + 20·log10(4π/c)<br>N_thermal = k · T0 · B  (T0 = 290 K, k = 1.38e-23 J/K)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
   <script src="dsp.js"></script>
   <script src="renderer.js"></script>
   <script src="app.js"></script>
